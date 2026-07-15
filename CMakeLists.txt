@@ -32,16 +32,19 @@ if(NOT FLY_CAPTURE_LIBRARY)
 	message(FATAL ERROR "libflycapture.so não encontrado")
 endif()
 
-add_executable(laser_scanner_linux
+add_executable(laser_scanner
 	src/main.cpp
+	src/FlyCaptureCamera.cpp
+	src/VideoViewer.cpp
 )
 
-target_include_directories(laser_scanner_linux PRIVATE
+target_include_directories(laser_scanner PRIVATE
 	"${FLY_CAPTURE_INCLUDE_DIR}"
-	${OpenCV_INCLUDE_DIRS}	
+	"${CMAKE_CURRENT_SOURCE_DIR}/include"
+	${OpenCV_INCLUDE_DIRS}
 )
 
-target_link_libraries(laser_scanner_linux PRIVATE
+target_link_libraries(laser_scanner PRIVATE
 	"${FLY_CAPTURE_LIBRARY}"
 	${OpenCV_LIBS}
 )
