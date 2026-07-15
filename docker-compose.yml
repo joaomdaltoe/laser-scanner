@@ -1,0 +1,22 @@
+version: "3.3"
+
+services:
+  laser-scanner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    image: laser-scanner:flycapture2-2.13.3.31
+    container_name: laser-scanner
+
+    network_mode: host
+
+    environment:
+      DISPLAY: "${DISPLAY}"
+
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+
+    stdin_open: true
+    tty: true
+    restart: "no"
