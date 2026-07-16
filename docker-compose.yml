@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     
-    image: laser-scanner:flycapture2-2.13.3.31
+    image: laser-scanner67:latest
     container_name: laser-scanner
 
     network_mode: host
