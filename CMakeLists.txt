@@ -35,6 +35,7 @@ endif()
 add_executable(laser_scanner
 	src/main.cpp
 	src/FlyCaptureCamera.cpp
+	src/LaserLineDetector.cpp
 	src/VideoViewer.cpp
 )
 

@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     
-    image: laser-scanner67:latest
+    image: labsolda:labsolda-laser-scanner-test
     container_name: laser-scanner
 
     network_mode: host

@@ -13,6 +13,12 @@ public:
     FlyCaptureCamera& operator=(const FlyCaptureCamera&) = delete;
 
     bool configureFrameRate(float framesPerSecond);
+    bool getExposureRange(
+        float& minimumMilliseconds,
+        float& maximumMilliseconds,
+        float& currentMilliseconds
+    );
+    bool configureExposure(float milliseconds);
     void start();
     void stop() noexcept;
 

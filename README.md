@@ -12,7 +12,8 @@ da imagem Docker, mas não deve ser executado manualmente.
 ## Responsabilidades das classes
 
 - `FlyCaptureCamera`: conexão, captura, tratamento do SDK e conversão para BGR.
-- `VideoViewer`: janela do OpenCV, cadência de exibição e comandos de teclado.
+- `LaserLineDetector`: detecção subpixel do centro da faixa laser por intensidade.
+- `VideoViewer`: janela do OpenCV, controles, cadência e comandos de teclado.
 
 ## Estrutura do repositório
 
@@ -143,3 +144,20 @@ docker-compose up --build
 ```
 
 Pressione `Q` ou `Esc` na janela do OpenCV para encerrar o vídeo.
+
+### Detecção da linha laser
+
+A janela desenha em vermelho o centro detectado da faixa laser. Como a câmera é
+monocromática, a detecção utiliza apenas a intensidade dos pixels; o formato BGR
+é mantido para permitir a sobreposição colorida no vídeo.
+
+O rastreamento combina três etapas: programação dinâmica para escolher uma linha
+brilhante e contínua ao longo da imagem, centroide ponderado para localizar o
+centro subpixel da espessura do laser e uma suavização curta contra ruído. O
+caminho global pode variar até dois pixels verticalmente entre colunas vizinhas.
+
+Durante a execução, dois controles ficam disponíveis na janela:
+
+- `Limiar`: intensidade mínima, entre 0 e 255, usada para reconhecer o laser.
+- `Exposição (µs)`: tempo de exposição em microssegundos. O intervalo permitido
+  é consultado diretamente na câmera pelo FlyCapture2.
