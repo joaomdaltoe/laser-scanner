@@ -151,6 +151,11 @@ A janela desenha em vermelho o centro detectado da faixa laser. Como a câmera �
 monocromática, a detecção utiliza apenas a intensidade dos pixels; o formato BGR
 é mantido para permitir a sobreposição colorida no vídeo.
 
+O rastreamento combina três etapas: programação dinâmica para escolher uma linha
+brilhante e contínua ao longo da imagem, centroide ponderado para localizar o
+centro subpixel da espessura do laser e uma suavização curta contra ruído. O
+caminho global pode variar até dois pixels verticalmente entre colunas vizinhas.
+
 Durante a execução, dois controles ficam disponíveis na janela:
 
 - `Limiar`: intensidade mínima, entre 0 e 255, usada para reconhecer o laser.
