@@ -43,13 +43,7 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
 
     cv::namedWindow(windowName_, cv::WINDOW_AUTOSIZE);
 
-    int intensityThreshold = 180;
-    cv::createTrackbar(
-        "Limiar",
-        windowName_,
-        &intensityThreshold,
-        255
-    );
+    int intensityThreshold = 240;
 
     float minimumExposureMilliseconds = 0.0F;
     float maximumExposureMilliseconds = 0.0F;
@@ -94,7 +88,7 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
         previousExposureMicroseconds = exposureMicroseconds;
 
         cv::createTrackbar(
-            "Exposicao (us)",
+            "Exposicao (µs)",
             windowName_,
             &exposureMicroseconds,
             exposureTrackbarMaximum

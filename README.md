@@ -154,5 +154,5 @@ monocromática, a detecção utiliza apenas a intensidade dos pixels; o formato 
 Durante a execução, dois controles ficam disponíveis na janela:
 
 - `Limiar`: intensidade mínima, entre 0 e 255, usada para reconhecer o laser.
-- `Exposição (us)`: tempo de exposição em microssegundos. O intervalo permitido
+- `Exposição (µs)`: tempo de exposição em microssegundos. O intervalo permitido
   é consultado diretamente na câmera pelo FlyCapture2.
