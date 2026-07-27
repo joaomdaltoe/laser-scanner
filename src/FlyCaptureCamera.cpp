@@ -1,5 +1,6 @@
 #include "FlyCaptureCamera.hpp"
 
+#include <algorithm>
 #include <sstream>
 #include <stdexcept>
 
@@ -77,6 +78,79 @@ bool FlyCaptureCamera::configureFrameRate(float framesPerSecond)
     frameRateProperty.absValue = framesPerSecond;
 
     error = camera_.SetProperty(&frameRateProperty);
+    return error == FlyCapture2::PGRERROR_OK;
+}
+
+bool FlyCaptureCamera::getExposureRange(
+    float& minimumMilliseconds,
+    float& maximumMilliseconds,
+    float& currentMilliseconds
+)
+{
+    FlyCapture2::PropertyInfo shutterInfo;
+    shutterInfo.type = FlyCapture2::SHUTTER;
+
+    FlyCapture2::Error error = camera_.GetPropertyInfo(&shutterInfo);
+    if (
+        error != FlyCapture2::PGRERROR_OK ||
+        !shutterInfo.present ||
+        !shutterInfo.absValSupported
+    )
+    {
+        return false;
+    }
+
+    FlyCapture2::Property shutterProperty;
+    shutterProperty.type = FlyCapture2::SHUTTER;
+    error = camera_.GetProperty(&shutterProperty);
+    if (error != FlyCapture2::PGRERROR_OK || !shutterProperty.present)
+    {
+        return false;
+    }
+
+    minimumMilliseconds = shutterInfo.absMin;
+    maximumMilliseconds = shutterInfo.absMax;
+    currentMilliseconds = shutterProperty.absValue;
+    return maximumMilliseconds >= minimumMilliseconds;
+}
+
+bool FlyCaptureCamera::configureExposure(float milliseconds)
+{
+    if (milliseconds <= 0.0F)
+    {
+        throw std::invalid_argument("A exposicao deve ser maior que zero.");
+    }
+
+    FlyCapture2::PropertyInfo shutterInfo;
+    shutterInfo.type = FlyCapture2::SHUTTER;
+
+    FlyCapture2::Error error = camera_.GetPropertyInfo(&shutterInfo);
+    if (
+        error != FlyCapture2::PGRERROR_OK ||
+        !shutterInfo.present ||
+        !shutterInfo.absValSupported
+    )
+    {
+        return false;
+    }
+
+    FlyCapture2::Property shutterProperty;
+    shutterProperty.type = FlyCapture2::SHUTTER;
+    error = camera_.GetProperty(&shutterProperty);
+    if (error != FlyCapture2::PGRERROR_OK || !shutterProperty.present)
+    {
+        return false;
+    }
+
+    shutterProperty.autoManualMode = false;
+    shutterProperty.onOff = true;
+    shutterProperty.absControl = true;
+    shutterProperty.absValue = std::max(
+        shutterInfo.absMin,
+        std::min(milliseconds, shutterInfo.absMax)
+    );
+
+    error = camera_.SetProperty(&shutterProperty);
     return error == FlyCapture2::PGRERROR_OK;
 }
 
