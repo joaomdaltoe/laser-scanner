@@ -70,3 +70,6 @@ Testing/
 
 # FlyCapture2 packages used by Docker
 third_party/
+
+# VS Code configuration files
+.vscode
