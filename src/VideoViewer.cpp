@@ -146,70 +146,93 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
                 imagePathTracker.detect(frame);
             imagePathTracker.draw(frame, laserPoints);
 
-            // Aplica a simplificacao separadamente em cada trecho continuo.
-            // Assim, colunas sem deteccao nao sao interpretadas como vizinhas.
-            std::size_t segmentBegin = 0;
-            while (segmentBegin < laserPoints.size())
+            // Reconstroi um unico caminho entre a primeira e a ultima deteccao.
+            // Lacunas causadas pela exposicao sao preenchidas por interpolacao,
+            // evitando executar a RDP uma vez para cada fragmento da linha.
+            if (!laserPoints.empty() && nInflectionPoints > 0)
             {
-                std::size_t segmentEnd = segmentBegin + 1;
-                while (
-                    segmentEnd < laserPoints.size() &&
-                    std::lround(
-                        laserPoints[segmentEnd].x -
-                        laserPoints[segmentEnd - 1].x
-                    ) == 1
+                const int firstX = cvRound(laserPoints.front().x);
+                const int lastX = cvRound(laserPoints.back().x);
+
+                std::vector<float> path(
+                    static_cast<std::size_t>(lastX - firstX + 1)
+                );
+                path.front() = laserPoints.front().y;
+
+                for (
+                    std::size_t index = 1;
+                    index < laserPoints.size();
+                    ++index
                 )
                 {
-                    ++segmentEnd;
-                }
+                    const cv::Point2f& previous = laserPoints[index - 1];
+                    const cv::Point2f& current = laserPoints[index];
+                    const int previousX = cvRound(previous.x);
+                    const int currentX = cvRound(current.x);
+                    const int horizontalDistance = currentX - previousX;
 
-                if (segmentEnd - segmentBegin >= 3)
-                {
-                    std::vector<float> path;
-                    path.reserve(segmentEnd - segmentBegin);
-
-                    for (
-                        std::size_t index = segmentBegin;
-                        index < segmentEnd;
-                        ++index
-                    )
+                    if (horizontalDistance <= 0)
                     {
-                        path.push_back(laserPoints[index].y);
+                        continue;
                     }
 
-                    const std::vector<int> inflectionPoints =
+                    for (int x = previousX + 1; x <= currentX; ++x)
+                    {
+                        const float interpolationFactor =
+                            static_cast<float>(x - previousX) /
+                            static_cast<float>(horizontalDistance);
+
+                        path[static_cast<std::size_t>(x - firstX)] =
+                            previous.y + interpolationFactor *
+                            (current.y - previous.y);
+                    }
+                }
+
+                const int pointCount = std::min(
+                    nInflectionPoints,
+                    static_cast<int>(path.size())
+                );
+
+                std::vector<int> inflectionPoints;
+                if (pointCount == 1)
+                {
+                    inflectionPoints.push_back(
+                        static_cast<int>(path.size() / 2)
+                    );
+                }
+                else
+                {
+                    // findInflectionPoints inclui os dois extremos. Portanto,
+                    // solicita-se somente a quantidade de pontos internos.
+                    inflectionPoints =
                         imagePathTracker.findInflectionPoints(
                             path,
-                            nInflectionPoints
+                            pointCount - 2
                         );
-
-                    for (const int localIndex : inflectionPoints)
-                    {
-                        if (
-                            localIndex < 0 ||
-                            localIndex >= static_cast<int>(path.size())
-                        )
-                        {
-                            continue;
-                        }
-
-                        const cv::Point2f& point = laserPoints[
-                            segmentBegin +
-                            static_cast<std::size_t>(localIndex)
-                        ];
-
-                        cv::circle(
-                            frame,
-                            cv::Point(cvRound(point.x), cvRound(point.y)),
-                            5,
-                            cv::Scalar(0, 255, 0),
-                            cv::FILLED,
-                            cv::LINE_AA
-                        );
-                    }
                 }
 
-                segmentBegin = segmentEnd;
+                for (const int pathIndex : inflectionPoints)
+                {
+                    if (
+                        pathIndex < 0 ||
+                        pathIndex >= static_cast<int>(path.size())
+                    )
+                    {
+                        continue;
+                    }
+
+                    cv::circle(
+                        frame,
+                        cv::Point(
+                            firstX + pathIndex,
+                            cvRound(path[static_cast<std::size_t>(pathIndex)])
+                        ),
+                        5,
+                        cv::Scalar(0, 255, 0),
+                        cv::FILLED,
+                        cv::LINE_AA
+                    );
+                }
             }
 
             cv::imshow(windowName_, frame);
