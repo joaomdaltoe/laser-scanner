@@ -2,6 +2,7 @@
 
 #include "FlyCaptureCamera.hpp"
 #include "ImagePathTrack.hpp"
+#include "Measurements.hpp"
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -10,10 +11,93 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <iomanip>
 #include <iostream>
 #include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
+#include <vector>
+
+namespace
+{
+constexpr int measurementsPanelWidth = 360;
+constexpr int measurementsPanelMargin = 14;
+constexpr int measurementsLineHeight = 22;
+
+std::string formatMeasurement(double value, const char* unit)
+{
+    std::ostringstream stream;
+    stream << std::fixed << std::setprecision(2) << value << ' ' << unit;
+    return stream.str();
+}
+
+void drawMeasurementsPanel(
+    cv::Mat& displayFrame,
+    int panelLeft,
+    const Measurements& measurements
+)
+{
+    const cv::Scalar white(255, 255, 255);
+    const cv::Scalar gray(140, 140, 140);
+    const cv::Scalar green(0, 255, 0);
+    const int textLeft = panelLeft + measurementsPanelMargin;
+    int textY = measurementsPanelMargin + measurementsLineHeight;
+
+    cv::line(
+        displayFrame,
+        cv::Point(panelLeft, 0),
+        cv::Point(panelLeft, displayFrame.rows - 1),
+        gray,
+        1,
+        cv::LINE_AA
+    );
+
+    const auto drawLine = [&](const std::string& text, const cv::Scalar& color)
+    {
+        if (textY < displayFrame.rows - measurementsPanelMargin)
+        {
+            cv::putText(
+                displayFrame,
+                text,
+                cv::Point(textLeft, textY),
+                cv::FONT_HERSHEY_SIMPLEX,
+                0.52,
+                color,
+                1,
+                cv::LINE_AA
+            );
+        }
+
+        textY += measurementsLineHeight;
+    };
+
+    drawLine("Medicoes", green);
+
+    if (measurements.empty())
+    {
+        drawLine("Sem pontos para medir", white);
+        return;
+    }
+
+    drawLine("Y: " + formatMeasurement(measurements.y(), "mm"), white);
+    drawLine("Z: " + formatMeasurement(measurements.z(), "mm"), white);
+    drawLine("Gap: " + formatMeasurement(measurements.gap(), "mm"), white);
+    drawLine("Area: " + formatMeasurement(measurements.area(), "mm^2"), white);
+
+    textY += measurementsLineHeight / 2;
+    const std::vector<Measurements::Point>& points = measurements.points();
+    for (std::size_t index = 0; index < points.size(); ++index)
+    {
+        std::ostringstream line;
+        line << "Ponto " << index
+             << "  Y: " << std::fixed << std::setprecision(2)
+             << points[index].y << " mm"
+             << "  Z: " << points[index].z << " mm";
+        drawLine(line.str(), white);
+    }
+}
+}
 
 VideoViewer::VideoViewer(
     std::string windowName,
@@ -111,6 +195,7 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
     }
 
     ImagePathTracker imagePathTracker(intensityThreshold);
+    Measurements measurements;
     camera.start();
 
     try
@@ -145,6 +230,8 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
             const std::vector<cv::Point2f> laserPoints =
                 imagePathTracker.detect(frame);
             imagePathTracker.draw(frame, laserPoints);
+
+            std::vector<cv::Point2f> measurementImagePoints;
 
             // Reconstroi um unico caminho entre a primeira e a ultima deteccao.
             // Lacunas causadas pela exposicao sao preenchidas por interpolacao,
@@ -221,11 +308,17 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
                         continue;
                     }
 
+                    const cv::Point2f measurementImagePoint(
+                        static_cast<float>(firstX + pathIndex),
+                        path[static_cast<std::size_t>(pathIndex)]
+                    );
+                    measurementImagePoints.push_back(measurementImagePoint);
+
                     cv::circle(
                         frame,
                         cv::Point(
-                            firstX + pathIndex,
-                            cvRound(path[static_cast<std::size_t>(pathIndex)])
+                            cvRound(measurementImagePoint.x),
+                            cvRound(measurementImagePoint.y)
                         ),
                         5,
                         cv::Scalar(0, 255, 0),
@@ -235,7 +328,18 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
                 }
             }
 
-            cv::imshow(windowName_, frame);
+            measurements.update(measurementImagePoints);
+
+            cv::Mat displayFrame(
+                frame.rows,
+                frame.cols + measurementsPanelWidth,
+                frame.type(),
+                cv::Scalar(0, 0, 0)
+            );
+            frame.copyTo(displayFrame(cv::Rect(0, 0, frame.cols, frame.rows)));
+            drawMeasurementsPanel(displayFrame, frame.cols, measurements);
+
+            cv::imshow(windowName_, displayFrame);
 
             nextFrameDeadline += framePeriod;
             const Clock::time_point now = Clock::now();

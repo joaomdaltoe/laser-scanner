@@ -36,6 +36,7 @@ add_executable(laser_scanner
 	src/main.cpp
 	src/FlyCaptureCamera.cpp
 	src/ImagePathTrack.cpp
+	src/Measurements.cpp
 	src/VideoViewer.cpp
 )
 
