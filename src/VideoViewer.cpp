@@ -1,9 +1,10 @@
 #include "VideoViewer.hpp"
 
 #include "FlyCaptureCamera.hpp"
-#include "LaserLineDetector.hpp"
+#include "ImagePathTrack.hpp"
 
 #include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -44,6 +45,14 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
     cv::namedWindow(windowName_, cv::WINDOW_AUTOSIZE);
 
     int intensityThreshold = 240;
+
+    int nInflectionPoints = 3;
+    cv::createTrackbar(
+        "N Pontos de Inflexão",
+        windowName_,
+        &nInflectionPoints,
+        10
+    );
 
     float minimumExposureMilliseconds = 0.0F;
     float maximumExposureMilliseconds = 0.0F;
@@ -101,7 +110,7 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
             << std::endl;
     }
 
-    LaserLineDetector laserLineDetector(intensityThreshold);
+    ImagePathTracker imagePathTracker(intensityThreshold);
     camera.start();
 
     try
@@ -110,7 +119,7 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
 
         while (true)
         {
-            laserLineDetector.setIntensityThreshold(intensityThreshold);
+            imagePathTracker.setIntensityThreshold(intensityThreshold);
 
             if (
                 exposureControlAvailable &&
@@ -134,8 +143,98 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
 
             cv::Mat frame = camera.grabFrameBgr();
             const std::vector<cv::Point2f> laserPoints =
-                laserLineDetector.detect(frame);
-            laserLineDetector.draw(frame, laserPoints);
+                imagePathTracker.detect(frame);
+            imagePathTracker.draw(frame, laserPoints);
+
+            // Reconstroi um unico caminho entre a primeira e a ultima deteccao.
+            // Lacunas causadas pela exposicao sao preenchidas por interpolacao,
+            // evitando executar a RDP uma vez para cada fragmento da linha.
+            if (!laserPoints.empty() && nInflectionPoints > 0)
+            {
+                const int firstX = cvRound(laserPoints.front().x);
+                const int lastX = cvRound(laserPoints.back().x);
+
+                std::vector<float> path(
+                    static_cast<std::size_t>(lastX - firstX + 1)
+                );
+                path.front() = laserPoints.front().y;
+
+                for (
+                    std::size_t index = 1;
+                    index < laserPoints.size();
+                    ++index
+                )
+                {
+                    const cv::Point2f& previous = laserPoints[index - 1];
+                    const cv::Point2f& current = laserPoints[index];
+                    const int previousX = cvRound(previous.x);
+                    const int currentX = cvRound(current.x);
+                    const int horizontalDistance = currentX - previousX;
+
+                    if (horizontalDistance <= 0)
+                    {
+                        continue;
+                    }
+
+                    for (int x = previousX + 1; x <= currentX; ++x)
+                    {
+                        const float interpolationFactor =
+                            static_cast<float>(x - previousX) /
+                            static_cast<float>(horizontalDistance);
+
+                        path[static_cast<std::size_t>(x - firstX)] =
+                            previous.y + interpolationFactor *
+                            (current.y - previous.y);
+                    }
+                }
+
+                const int pointCount = std::min(
+                    nInflectionPoints,
+                    static_cast<int>(path.size())
+                );
+
+                std::vector<int> inflectionPoints;
+                if (pointCount == 1)
+                {
+                    inflectionPoints.push_back(
+                        static_cast<int>(path.size() / 2)
+                    );
+                }
+                else
+                {
+                    // findInflectionPoints inclui os dois extremos. Portanto,
+                    // solicita-se somente a quantidade de pontos internos.
+                    inflectionPoints =
+                        imagePathTracker.findInflectionPoints(
+                            path,
+                            pointCount - 2
+                        );
+                }
+
+                for (const int pathIndex : inflectionPoints)
+                {
+                    if (
+                        pathIndex < 0 ||
+                        pathIndex >= static_cast<int>(path.size())
+                    )
+                    {
+                        continue;
+                    }
+
+                    cv::circle(
+                        frame,
+                        cv::Point(
+                            firstX + pathIndex,
+                            cvRound(path[static_cast<std::size_t>(pathIndex)])
+                        ),
+                        5,
+                        cv::Scalar(0, 255, 0),
+                        cv::FILLED,
+                        cv::LINE_AA
+                    );
+                }
+            }
+
             cv::imshow(windowName_, frame);
 
             nextFrameDeadline += framePeriod;

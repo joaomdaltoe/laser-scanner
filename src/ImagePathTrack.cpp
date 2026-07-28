@@ -1,13 +1,13 @@
-#include "LaserLineDetector.hpp"
+#include "ImagePathTrack.hpp"
 
 #include <opencv2/imgproc.hpp>
 
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <iterator>
 #include <limits>
 #include <stdexcept>
+#include <math.h>
 
 namespace
 {
@@ -18,13 +18,13 @@ constexpr float movementPenalty = 1.0e-2F;
 constexpr float inverseMaximumIntensity = 1.0F / 255.0F;
 }
 
-LaserLineDetector::LaserLineDetector(int intensityThreshold)
+ImagePathTracker::ImagePathTracker(int intensityThreshold)
     : intensityThreshold_(0)
 {
     setIntensityThreshold(intensityThreshold);
 }
 
-void LaserLineDetector::setIntensityThreshold(int intensityThreshold)
+void ImagePathTracker::setIntensityThreshold(int intensityThreshold)
 {
     if (intensityThreshold < 0 || intensityThreshold > 255)
     {
@@ -34,12 +34,12 @@ void LaserLineDetector::setIntensityThreshold(int intensityThreshold)
     intensityThreshold_ = intensityThreshold;
 }
 
-int LaserLineDetector::intensityThreshold() const noexcept
+int ImagePathTracker::intensityThreshold() const noexcept
 {
     return intensityThreshold_;
 }
 
-std::vector<cv::Point2f> LaserLineDetector::detect(const cv::Mat& bgrFrame) const
+std::vector<cv::Point2f> ImagePathTracker::detect(const cv::Mat& bgrFrame) const
 {
     if (bgrFrame.empty())
     {
@@ -253,7 +253,7 @@ std::vector<cv::Point2f> LaserLineDetector::detect(const cv::Mat& bgrFrame) cons
     return centerline;
 }
 
-void LaserLineDetector::draw(
+void ImagePathTracker::draw(
     cv::Mat& bgrFrame,
     const std::vector<cv::Point2f>& points
 ) const
@@ -291,4 +291,75 @@ void LaserLineDetector::draw(
             );
         }
     }
+}
+
+std::vector<int> ImagePathTracker::findInflectionPoints(
+    const std::vector<float> path,
+    int nInflectionPoints
+) const
+{
+    if (path.empty()) return {};
+
+    if (path.size() == 1) return {0};
+
+    std::vector<int> interestPoints{0, static_cast<int>(path.size())-1};
+
+    const int maximumInteriorPoints = static_cast<int>(path.size())-2;
+
+    const int requestedPoints = std::max(0,
+    std::min(nInflectionPoints, maximumInteriorPoints));
+
+
+
+    for (int i = 0; i < requestedPoints; i++) {
+        float maxError = -std::numeric_limits<float>::infinity();
+        int maxIndex = -1;
+        
+        for (std::size_t p = 0; p+1 < interestPoints.size(); p++) {
+
+            auto result = RDP(path, interestPoints[p], interestPoints[p+1]);
+        
+            if (result.first >= 0 && result.second > maxError) {
+                maxIndex = result.first;
+                maxError = result.second;
+            }
+        }
+
+        if (maxIndex < 0) break;
+
+        const auto insertionPosition = std::lower_bound(
+            interestPoints.begin(),
+            interestPoints.end(),
+            maxIndex
+        );
+
+        interestPoints.insert(insertionPosition, maxIndex);
+    }
+
+    return interestPoints;
+}
+
+std::pair<int,float> ImagePathTracker::RDP(
+    const std::vector<float> points,
+    int x0,
+    int x1
+) const
+{
+    float ydot = (points[x1] - points[x0]) / (float)(x1-x0);
+
+    float maxError = -std::numeric_limits<float>::infinity();
+    int idMaxError = -1;
+
+    float temp = 1.0f / (float)sqrt((points[x0] - points[x1]) * (points[x0] - points[x1]) + (x0 - x1) * (x0 - x1));
+
+    for (int k = x0+1; k < x1; k++) {
+        float error = temp * abs((points[x1] - points[x0]) * k - (x1 - x0) * points[k] + x1 * points[x0] - x0 * points[x1]);
+        
+        if (error > maxError) {
+            maxError = error;
+            idMaxError = k;
+        }
+    }
+
+    return {idMaxError, maxError};
 }
