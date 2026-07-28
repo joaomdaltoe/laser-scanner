@@ -298,32 +298,42 @@ std::vector<int> ImagePathTracker::findInflectionPoints(
     int nInflectionPoints
 ) const
 {
-    std::vector<int> interestPoints;
+    if (path.empty()) return {};
 
-    interestPoints.push_back(0);
-    interestPoints.push_back(path.size()-1);
+    if (path.size() == 1) return {0};
 
-    for (int i = 0; i < nInflectionPoints; i++) {
-        float maxPointError = -std::numeric_limits<float>::infinity();
-        int idPointError = -1;
+    std::vector<int> interestPoints{0, static_cast<int>(path.size())-1};
+
+    const int maximumInteriorPoints = static_cast<int>(path.size())-2;
+
+    const int requestedPoints = std::max(0,
+    std::min(nInflectionPoints, maximumInteriorPoints));
+
+
+
+    for (int i = 0; i < requestedPoints; i++) {
+        float maxError = -std::numeric_limits<float>::infinity();
+        int maxIndex = -1;
         
-        for (int p = 0; p < interestPoints.size()-1; p++) {
+        for (std::size_t p = 0; p+1 < interestPoints.size(); p++) {
 
-            float pointsError;
-            int idPoint = RDP(path, interestPoints[p], interestPoints[p+1]);
+            auto result = RDP(path, interestPoints[p], interestPoints[p+1]);
         
-            if (pointsError > maxPointError) {
-                maxPointError = pointsError;
-                idPointError = idPoint;
+            if (result.first >= 0 && result.second > maxError) {
+                maxIndex = result.first;
+                maxError = result.second;
             }
         }
-        
-        for (int p = 0; p < interestPoints.size()-1; p++) {
-            if (interestPoints[p-1] <= idPointError && idPointError < interestPoints[p]) {
-                interestPoints.insert(p, idPointError);
-                break;
-            }
-        }
+
+        if (maxIndex < 0) break;
+
+        const auto insertionPosition = std::lower_bound(
+            interestPoints.begin(),
+            interestPoints.end(),
+            maxIndex
+        );
+
+        interestPoints.insert(insertionPosition, maxIndex);
     }
 
     return interestPoints;
