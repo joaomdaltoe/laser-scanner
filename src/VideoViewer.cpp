@@ -80,13 +80,13 @@ void drawMeasurementsPanel(
         return;
     }
 
-    drawLine("Y: " + formatMeasurement(measurements.y(), "mm"), white);
-    drawLine("Z: " + formatMeasurement(measurements.z(), "mm"), white);
-    drawLine("Gap: " + formatMeasurement(measurements.gap(), "mm"), white);
-    drawLine("Area: " + formatMeasurement(measurements.area(), "mm^2"), white);
+    drawLine("Y: " + formatMeasurement(measurements.get_y(), "mm"), white);
+    drawLine("Z: " + formatMeasurement(measurements.get_z(), "mm"), white);
+    drawLine("Gap: " + formatMeasurement(measurements.get_gap(), "mm"), white);
+    drawLine("Area: " + formatMeasurement(measurements.get_area(), "mm^2"), white);
 
     textY += measurementsLineHeight / 2;
-    const std::vector<Measurements::Point>& points = measurements.points();
+    const std::vector<Measurements::Point>& points = measurements.get_points();
     for (std::size_t index = 0; index < points.size(); ++index)
     {
         std::ostringstream line;

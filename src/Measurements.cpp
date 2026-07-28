@@ -75,27 +75,27 @@ bool Measurements::empty() const noexcept
     return points_.empty();
 }
 
-double Measurements::y() const noexcept
+double Measurements::get_y() const noexcept
 {
     return y_;
 }
 
-double Measurements::z() const noexcept
+double Measurements::get_z() const noexcept
 {
     return z_;
 }
 
-double Measurements::gap() const noexcept
+double Measurements::get_gap() const noexcept
 {
     return gap_;
 }
 
-double Measurements::area() const noexcept
+double Measurements::get_area() const noexcept
 {
     return area_;
 }
 
-const std::vector<Measurements::Point>& Measurements::points() const noexcept
+const std::vector<Measurements::Point>& Measurements::get_points() const noexcept
 {
     return points_;
 }
@@ -110,8 +110,6 @@ double Measurements::polygonArea(
     const std::vector<Measurements::Point>& points
 ) noexcept
 {
-    // Mantem a regra da aplicacao C#: os extremos da linha sao excluidos e a
-    // area so existe quando restam ao menos tres pontos internos.
     if (points.size() < 5)
     {
         return 0.0;

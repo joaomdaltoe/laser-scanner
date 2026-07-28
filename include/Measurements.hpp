@@ -21,11 +21,11 @@ public:
     void update(const std::vector<cv::Point2f>& imagePoints);
 
     bool empty() const noexcept;
-    double y() const noexcept;
-    double z() const noexcept;
-    double gap() const noexcept;
-    double area() const noexcept;
-    const std::vector<Point>& points() const noexcept;
+    double get_y() const noexcept;
+    double get_z() const noexcept;
+    double get_gap() const noexcept;
+    double get_area() const noexcept;
+    const std::vector<Point>& get_points() const noexcept;
 
 private:
     double convertPixelCoordinate(double coordinate) const noexcept;
