@@ -4,10 +4,10 @@
 
 #include <vector>
 
-class LaserLineDetector final
+class ImagePathTracker final
 {
 public:
-    explicit LaserLineDetector(int intensityThreshold = 180);
+    explicit ImagePathTracker(int intensityThreshold = 180);
 
     void setIntensityThreshold(int intensityThreshold);
     int intensityThreshold() const noexcept;
@@ -15,6 +15,9 @@ public:
     std::vector<cv::Point2f> detect(const cv::Mat& bgrFrame) const;
     void draw(cv::Mat& bgrFrame, const std::vector<cv::Point2f>& points) const;
 
+    std::vector<int> findInflectionPoints(const std::vector<float> path, int nInflectionPoints) const;
+
+    std::pair<int,float> RDP(const std::vector<float> points, int x0, int x1) const;
 private:
     int intensityThreshold_;
 };

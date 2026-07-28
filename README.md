@@ -12,30 +12,8 @@ da imagem Docker, mas não deve ser executado manualmente.
 ## Responsabilidades das classes
 
 - `FlyCaptureCamera`: conexão, captura, tratamento do SDK e conversão para BGR.
-- `LaserLineDetector`: detecção subpixel do centro da faixa laser por intensidade.
+- `ImagePathTrack`: detecção subpixel do centro da faixa laser por intensidade e pontos de inflexão.
 - `VideoViewer`: janela do OpenCV, controles, cadência e comandos de teclado.
-
-## Estrutura do repositório
-
-```text
-laser-scanner/
-├── Dockerfile
-├── docker-compose.yml
-├── CMakeLists.txt
-├── README.md
-├── .gitignore
-├── include/
-│   ├── FlyCaptureCamera.hpp
-│   └── VideoViewer.hpp
-├── src/
-│   ├── FlyCaptureCamera.cpp
-│   ├── VideoViewer.cpp
-│   └── main.cpp
-└── third_party/
-    └── flycapture2/
-        ├── libflycapture-2_2.13.3.31_amd64.deb
-        └── libflycapture-dev_2.13.3.31_amd64.deb
-```
 
 ## Preparar os pacotes FlyCapture2
 

@@ -1,9 +1,10 @@
 #include "VideoViewer.hpp"
 
 #include "FlyCaptureCamera.hpp"
-#include "LaserLineDetector.hpp"
+#include "ImagePathTrack.hpp"
 
 #include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -49,6 +50,14 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
         windowName_,
         &intensityThreshold,
         255
+    );
+
+    int nInflectionPoints = 3;
+    cv::createTrackbar(
+        "N Pontos de Inflexão",
+        windowName_,
+        &nInflectionPoints,
+        10
     );
 
     float minimumExposureMilliseconds = 0.0F;
@@ -107,7 +116,7 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
             << std::endl;
     }
 
-    LaserLineDetector laserLineDetector(intensityThreshold);
+    ImagePathTracker imagePathTracker(intensityThreshold);
     camera.start();
 
     try
@@ -116,7 +125,7 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
 
         while (true)
         {
-            laserLineDetector.setIntensityThreshold(intensityThreshold);
+            imagePathTracker.setIntensityThreshold(intensityThreshold);
 
             if (
                 exposureControlAvailable &&
@@ -140,8 +149,75 @@ void VideoViewer::run(FlyCaptureCamera& camera) const
 
             cv::Mat frame = camera.grabFrameBgr();
             const std::vector<cv::Point2f> laserPoints =
-                laserLineDetector.detect(frame);
-            laserLineDetector.draw(frame, laserPoints);
+                imagePathTracker.detect(frame);
+            imagePathTracker.draw(frame, laserPoints);
+
+            // Aplica a simplificacao separadamente em cada trecho continuo.
+            // Assim, colunas sem deteccao nao sao interpretadas como vizinhas.
+            std::size_t segmentBegin = 0;
+            while (segmentBegin < laserPoints.size())
+            {
+                std::size_t segmentEnd = segmentBegin + 1;
+                while (
+                    segmentEnd < laserPoints.size() &&
+                    std::lround(
+                        laserPoints[segmentEnd].x -
+                        laserPoints[segmentEnd - 1].x
+                    ) == 1
+                )
+                {
+                    ++segmentEnd;
+                }
+
+                if (segmentEnd - segmentBegin >= 3)
+                {
+                    std::vector<float> path;
+                    path.reserve(segmentEnd - segmentBegin);
+
+                    for (
+                        std::size_t index = segmentBegin;
+                        index < segmentEnd;
+                        ++index
+                    )
+                    {
+                        path.push_back(laserPoints[index].y);
+                    }
+
+                    const std::vector<int> inflectionPoints =
+                        imagePathTracker.findInflectionPoints(
+                            path,
+                            nInflectionPoints
+                        );
+
+                    for (const int localIndex : inflectionPoints)
+                    {
+                        if (
+                            localIndex < 0 ||
+                            localIndex >= static_cast<int>(path.size())
+                        )
+                        {
+                            continue;
+                        }
+
+                        const cv::Point2f& point = laserPoints[
+                            segmentBegin +
+                            static_cast<std::size_t>(localIndex)
+                        ];
+
+                        cv::circle(
+                            frame,
+                            cv::Point(cvRound(point.x), cvRound(point.y)),
+                            5,
+                            cv::Scalar(0, 255, 0),
+                            cv::FILLED,
+                            cv::LINE_AA
+                        );
+                    }
+                }
+
+                segmentBegin = segmentEnd;
+            }
+
             cv::imshow(windowName_, frame);
 
             nextFrameDeadline += framePeriod;
