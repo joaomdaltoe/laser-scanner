@@ -2,6 +2,7 @@
 
 #include "FlyCaptureCamera.hpp"
 #include "ImagePathTrack.hpp"
+#include "Measurements.hpp"
 
 #include <opencv2/imgproc.hpp>
 
@@ -92,6 +93,16 @@ QSlider* createHorizontalSlider(int minimum, int maximum, int value)
     return slider;
 }
 
+QString formatMillimeters(double value)
+{
+    return QString("%1 mm").arg(value, 0, 'f', 2);
+}
+
+QString formatSquareMillimeters(double value)
+{
+    return QString("%1 mm^2").arg(value, 0, 'f', 2);
+}
+
 QImage matToImage(const cv::Mat& bgrFrame)
 {
     cv::Mat rgbFrame;
@@ -106,23 +117,25 @@ QImage matToImage(const cv::Mat& bgrFrame)
     ).copy();
 }
 
-int drawInflectionPoints(
+std::vector<cv::Point2f> drawInflectionPoints(
     cv::Mat& frame,
     const std::vector<cv::Point2f>& laserPoints,
     int requestedPointCount,
     const ImagePathTracker& imagePathTracker
 )
 {
+    std::vector<cv::Point2f> measurementImagePoints;
+
     if (laserPoints.empty() || requestedPointCount <= 0)
     {
-        return 0;
+        return measurementImagePoints;
     }
 
     const int firstX = cvRound(laserPoints.front().x);
     const int lastX = cvRound(laserPoints.back().x);
     if (lastX < firstX)
     {
-        return 0;
+        return measurementImagePoints;
     }
 
     std::vector<float> path(static_cast<std::size_t>(lastX - firstX + 1));
@@ -164,13 +177,15 @@ int drawInflectionPoints(
     }
     else
     {
+        // findInflectionPoints inclui os dois extremos. Portanto,
+        // solicita-se somente a quantidade de pontos internos.
         inflectionPoints = imagePathTracker.findInflectionPoints(
             path,
             pointCount - 2
         );
     }
 
-    int drawnPointCount = 0;
+    measurementImagePoints.reserve(inflectionPoints.size());
     for (const int pathIndex : inflectionPoints)
     {
         if (pathIndex < 0 || pathIndex >= static_cast<int>(path.size()))
@@ -178,21 +193,26 @@ int drawInflectionPoints(
             continue;
         }
 
+        const cv::Point2f measurementImagePoint(
+            static_cast<float>(firstX + pathIndex),
+            path[static_cast<std::size_t>(pathIndex)]
+        );
+        measurementImagePoints.push_back(measurementImagePoint);
+
         cv::circle(
             frame,
             cv::Point(
-                firstX + pathIndex,
-                cvRound(path[static_cast<std::size_t>(pathIndex)])
+                cvRound(measurementImagePoint.x),
+                cvRound(measurementImagePoint.y)
             ),
             5,
             cv::Scalar(0, 255, 0),
             cv::FILLED,
             cv::LINE_AA
         );
-        ++drawnPointCount;
     }
 
-    return drawnPointCount;
+    return measurementImagePoints;
 }
 
 class CameraMainWindow final : public QMainWindow
@@ -352,9 +372,18 @@ private:
         detectedPointsLabel_ = createValueLabel("Pontos detectados: 0");
         inflectionPointsLabel_ = createValueLabel("Pontos marcados: 0");
         frameSizeLabel_ = createValueLabel("Frame: -");
+        yLabel_ = createValueLabel("Y: -");
+        zLabel_ = createValueLabel("Z: -");
+        gapLabel_ = createValueLabel("Gap: -");
+        areaLabel_ = createValueLabel("Area: -");
         measurementsLayout->addWidget(detectedPointsLabel_);
         measurementsLayout->addWidget(inflectionPointsLabel_);
         measurementsLayout->addWidget(frameSizeLabel_);
+        measurementsLayout->addSpacing(8);
+        measurementsLayout->addWidget(yLabel_);
+        measurementsLayout->addWidget(zLabel_);
+        measurementsLayout->addWidget(gapLabel_);
+        measurementsLayout->addWidget(areaLabel_);
 
         sideLayout->addWidget(controlsGroup);
         sideLayout->addWidget(measurementsGroup);
@@ -376,6 +405,7 @@ private:
         statusBar()->addPermanentWidget(laserLabel_);
 
         updateControlLabels();
+        updateMeasurementLabels();
     }
 
     void processFrame()
@@ -390,23 +420,26 @@ private:
                 imagePathTracker_.detect(frame);
             imagePathTracker_.draw(frame, laserPoints);
 
-            const int inflectionPointCount = drawInflectionPoints(
-                frame,
-                laserPoints,
-                pointsSlider_->value(),
-                imagePathTracker_
-            );
+            const std::vector<cv::Point2f> measurementImagePoints =
+                drawInflectionPoints(
+                    frame,
+                    laserPoints,
+                    pointsSlider_->value(),
+                    imagePathTracker_
+                );
+            measurements_.update(measurementImagePoints);
 
             frameWidget_->setFrame(matToImage(frame));
             detectedPointsLabel_->setText(QString("Pontos detectados: %1").arg(
                 static_cast<qulonglong>(laserPoints.size())
             ));
             inflectionPointsLabel_->setText(QString("Pontos marcados: %1").arg(
-                inflectionPointCount
+                static_cast<qulonglong>(measurementImagePoints.size())
             ));
             frameSizeLabel_->setText(QString("Frame: %1 x %2").arg(
                 frame.cols
             ).arg(frame.rows));
+            updateMeasurementLabels();
             laserLabel_->setText(
                 laserPoints.empty() ? "Laser: inativo" : "Laser: ativo"
             );
@@ -464,6 +497,25 @@ private:
         pointsValueLabel_->setText(QString::number(pointsSlider_->value()));
     }
 
+    void updateMeasurementLabels()
+    {
+        if (measurements_.empty())
+        {
+            yLabel_->setText("Y: -");
+            zLabel_->setText("Z: -");
+            gapLabel_->setText("Gap: -");
+            areaLabel_->setText("Area: -");
+            return;
+        }
+
+        yLabel_->setText("Y: " + formatMillimeters(measurements_.get_y()));
+        zLabel_->setText("Z: " + formatMillimeters(measurements_.get_z()));
+        gapLabel_->setText("Gap: " + formatMillimeters(measurements_.get_gap()));
+        areaLabel_->setText(
+            "Area: " + formatSquareMillimeters(measurements_.get_area())
+        );
+    }
+
     void updateFps()
     {
         ++framesSinceLastFpsUpdate_;
@@ -483,6 +535,7 @@ private:
 
     FlyCaptureCamera& camera_;
     ImagePathTracker imagePathTracker_;
+    Measurements measurements_;
     QTimer frameTimer_;
     FrameWidget* frameWidget_ = nullptr;
     QSlider* exposureSlider_ = nullptr;
@@ -494,6 +547,10 @@ private:
     QLabel* detectedPointsLabel_ = nullptr;
     QLabel* inflectionPointsLabel_ = nullptr;
     QLabel* frameSizeLabel_ = nullptr;
+    QLabel* yLabel_ = nullptr;
+    QLabel* zLabel_ = nullptr;
+    QLabel* gapLabel_ = nullptr;
+    QLabel* areaLabel_ = nullptr;
     QLabel* connectedLabel_ = nullptr;
     QLabel* fpsLabel_ = nullptr;
     QLabel* laserLabel_ = nullptr;
