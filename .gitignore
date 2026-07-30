@@ -72,4 +72,4 @@ Testing/
 third_party/
 
 # VS Code configuration files
-.vscode
+.vscode/

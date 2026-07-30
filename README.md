@@ -1,19 +1,20 @@
 # Laser Scanner Linux
 
-Aplicação C++ para uma câmera compatível com FlyCapture2. O programa captura
-quadros continuamente, converte cada imagem para BGR (`cv::Mat`) e exibe o vídeo
-em uma janela do OpenCV limitada a aproximadamente 30 FPS.
+Aplicação C++/Qt para uma câmera compatível com FlyCapture2. O programa captura
+quadros continuamente, converte cada imagem para BGR (`cv::Mat`), preserva o
+processamento e os desenhos em OpenCV e exibe o vídeo em uma janela Qt limitada
+a aproximadamente 30 FPS.
 
 A compilação e a execução são feitas exclusivamente com Docker. Não é necessário
-instalar o FlyCapture2, o OpenCV ou ferramentas de compilação diretamente no host.
-O CMake permanece no repositório porque é utilizado internamente durante a criação
-da imagem Docker, mas não deve ser executado manualmente.
+instalar o FlyCapture2, o OpenCV, o Qt ou ferramentas de compilação diretamente
+no host. O CMake permanece no repositório porque é utilizado internamente durante
+a criação da imagem Docker, mas não deve ser executado manualmente.
 
 ## Responsabilidades das classes
 
 - `FlyCaptureCamera`: conexão, captura, tratamento do SDK e conversão para BGR.
 - `ImagePathTrack`: detecção subpixel do centro da faixa laser por intensidade e pontos de inflexão.
-- `VideoViewer`: janela do OpenCV, controles, cadência e comandos de teclado.
+- `VideoViewer`: janela Qt, controles, cadência, indicadores e comandos de teclado.
 
 ## Preparar os pacotes FlyCapture2
 
@@ -38,7 +39,7 @@ ls -lh third_party/flycapture2/libflycapture-dev*.deb
 - Computador x86-64 conectado à câmera GigE.
 - Docker Engine.
 - `docker-compose`.
-- Servidor gráfico X11 ou XWayland para a janela do OpenCV.
+- Servidor gráfico X11 ou XWayland para a janela Qt.
 
 Verifique as ferramentas:
 
@@ -99,7 +100,7 @@ Confira a imagem criada:
 docker image ls | grep laser-scanner
 ```
 
-## Permitir a janela do OpenCV
+## Permitir a janela Qt
 
 Autorize temporariamente o usuário `root` do container a acessar o X11 local:
 
@@ -121,7 +122,7 @@ Para reconstruir a imagem e executar em um único comando:
 docker-compose up --build
 ```
 
-Pressione `Q` ou `Esc` na janela do OpenCV para encerrar o vídeo.
+Feche a janela Qt, ou pressione `Q` ou `Esc`, para encerrar o vídeo.
 
 ### Detecção da linha laser
 
@@ -134,8 +135,9 @@ brilhante e contínua ao longo da imagem, centroide ponderado para localizar o
 centro subpixel da espessura do laser e uma suavização curta contra ruído. O
 caminho global pode variar até dois pixels verticalmente entre colunas vizinhas.
 
-Durante a execução, dois controles ficam disponíveis na janela:
+Durante a execução, os controles ficam disponíveis no painel direito da janela:
 
-- `Limiar`: intensidade mínima, entre 0 e 255, usada para reconhecer o laser.
-- `Exposição (µs)`: tempo de exposição em microssegundos. O intervalo permitido
+- `Threshold`: intensidade mínima, entre 0 e 255, usada para reconhecer o laser.
+- `Exposicao`: tempo de exposição em microssegundos. O intervalo permitido
   é consultado diretamente na câmera pelo FlyCapture2.
+- `nPontos`: quantidade de pontos de inflexão marcados no caminho detectado.

@@ -8,7 +8,7 @@ class VideoViewer final
 {
 public:
     explicit VideoViewer(
-        std::string windowName = "Camera FLEA",
+        std::string windowName = "Camera GigE FLEA",
         double targetFramesPerSecond = 30.0
     );
 

@@ -1,15 +1,19 @@
 #include "FlyCaptureCamera.hpp"
 #include "VideoViewer.hpp"
 
+#include <QApplication>
+
 #include <exception>
 #include <iostream>
 
-int main()
+int main(int argc, char* argv[])
 {
     constexpr float targetFramesPerSecond = 30.0F;
 
     try
     {
+        QApplication application(argc, argv);
+
         FlyCaptureCamera camera(0);
         const FlyCapture2::CameraInfo& cameraInfo = camera.info();
 
@@ -31,7 +35,7 @@ int main()
             << "Video iniciado. Pressione Q ou Esc para encerrar."
             << std::endl;
 
-        VideoViewer viewer("Camera FLEA", targetFramesPerSecond);
+        VideoViewer viewer("Camera GigE FLEA", targetFramesPerSecond);
         viewer.run(camera);
     }
     catch (const std::exception& exception)

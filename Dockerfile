@@ -10,6 +10,7 @@ RUN apt-get update \
     cmake \
     pkg-config \
     libopencv-dev \
+    qtbase5-dev \
     /tmp/flycapture2/libflycapture-2*.deb \
  && rm -rf /var/lib/apt/lists/* \
  && rm -rf /tmp/flycapture2   
