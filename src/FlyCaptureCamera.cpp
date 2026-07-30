@@ -1,3 +1,12 @@
+/**
+ * @file FlyCaptureCamera.cpp
+ * @brief Implementa o wrapper de acesso a cameras FlyCapture2.
+ *
+ * @details
+ * TODO: complementar com instrucoes de diagnostico para falhas de driver,
+ * permissao de dispositivo e compatibilidade de hardware.
+ */
+
 #include "FlyCaptureCamera.hpp"
 
 #include <algorithm>

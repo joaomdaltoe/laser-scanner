@@ -1,3 +1,12 @@
+/**
+ * @file ImagePathTrack.cpp
+ * @brief Implementa a deteccao e simplificacao do caminho da linha laser.
+ *
+ * @details
+ * TODO: complementar com a justificativa dos parametros de busca, suavizacao e
+ * penalizacao usados pelo rastreador.
+ */
+
 #include "ImagePathTrack.hpp"
 
 #include <opencv2/imgproc.hpp>
