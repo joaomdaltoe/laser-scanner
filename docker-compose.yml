@@ -8,6 +8,9 @@ services:
     
     image: labsolda:labsolda-laser-scanner-test
     container_name: laser-scanner
+    # Usa a identidade da sessao grafica do host. Isso tambem permite que o Qt
+    # autentique no barramento AT-SPI anunciado pelo servidor X11.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
 
     network_mode: host
 
@@ -19,6 +22,8 @@ services:
 
     environment:
       DISPLAY: "${DISPLAY}"
+      HOME: /tmp/laser-scanner-home
+      XDG_RUNTIME_DIR: /tmp/laser-scanner-runtime
 
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw

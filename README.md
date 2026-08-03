@@ -102,10 +102,19 @@ docker image ls | grep laser-scanner
 
 ## Permitir a janela Qt
 
-Autorize temporariamente o usuário `root` do container a acessar o X11 local:
+Informe ao Compose o UID e o GID do usuário da sessão gráfica:
 
 ```bash
-xhost +SI:localuser:root
+export HOST_UID="$(id -u)"
+export HOST_GID="$(id -g)"
+```
+
+O container executa a aplicação com essa identidade, evitando acesso como
+`root` ao X11 e ao barramento de acessibilidade AT-SPI da sessão. Se o X11
+ainda exigir autorização explícita, libere somente o usuário atual:
+
+```bash
+xhost +SI:localuser:"$(id -un)"
 ```
 
 Não use `xhost +`, pois isso libera acesso indiscriminado ao servidor gráfico.

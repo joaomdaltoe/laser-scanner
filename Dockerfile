@@ -25,10 +25,13 @@ WORKDIR  /opt/laser_scanner/
 COPY CMakeLists.txt ./
 COPY include/ ./include/
 COPY src/ ./src/
+COPY docker-entrypoint.sh /usr/local/bin/laser-scanner-entrypoint
 
 RUN mkdir -p build \
  && cd build \
  && cmake -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" .. \
- && cmake --build .
+ && cmake --build . \
+ && chmod 0755 /usr/local/bin/laser-scanner-entrypoint
 
+ENTRYPOINT ["/usr/local/bin/laser-scanner-entrypoint"]
 CMD ["./build/laser_scanner"]
