@@ -24,6 +24,9 @@ services:
       DISPLAY: "${DISPLAY}"
       HOME: /tmp/laser-scanner-home
       XDG_RUNTIME_DIR: /tmp/laser-scanner-runtime
+      # O libdbus 1.12 nao deve encerrar o processo por uma falha interna da
+      # ponte AT-SPI do Qt 5.9. O aviso permanece visivel para diagnostico.
+      DBUS_FATAL_WARNINGS: "0"
 
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw

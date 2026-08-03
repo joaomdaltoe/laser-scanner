@@ -131,6 +131,13 @@ Para reconstruir a imagem e executar em um único comando:
 docker-compose up --build
 ```
 
+No Ubuntu 18.04, a combinação Qt 5.9/libdbus 1.12 pode imprimir o aviso
+`last reference on a private connection was dropped without closing the
+connection` ao inicializar a acessibilidade AT-SPI. A aplicação configura esse
+aviso como não fatal antes de criar o `QApplication`; portanto, ele pode
+continuar no terminal, mas não deve mais produzir `SIGABRT` nem encerrar o
+container com código 134/139.
+
 Feche a janela Qt, ou pressione `Q` ou `Esc`, para encerrar o vídeo.
 
 ### Detecção da linha laser

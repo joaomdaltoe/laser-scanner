@@ -2,6 +2,8 @@
 #include "VideoViewer.hpp"
 
 #include <QApplication>
+#include <QByteArray>
+#include <QtGlobal>
 
 #include <exception>
 #include <iostream>
@@ -12,6 +14,17 @@ int main(int argc, char* argv[])
 
     try
     {
+        // No Qt 5.9 do Ubuntu 18.04, a ponte de acessibilidade AT-SPI pode
+        // liberar uma conexao D-Bus privada que falhou antes de fecha-la. O
+        // libdbus 1.12 transforma essa verificacao em SIGABRT por padrao.
+        // Defina isto antes do QApplication, pois o primeiro setText() de um
+        // widget ja pode inicializar a ponte. Uma configuracao explicita do
+        // ambiente continua tendo precedencia, inclusive para diagnostico.
+        if (!qEnvironmentVariableIsSet("DBUS_FATAL_WARNINGS"))
+        {
+            qputenv("DBUS_FATAL_WARNINGS", QByteArrayLiteral("0"));
+        }
+
         QApplication application(argc, argv);
 
         FlyCaptureCamera camera(0);
