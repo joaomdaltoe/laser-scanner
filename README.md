@@ -107,6 +107,7 @@ Informe ao Compose o UID e o GID do usuário da sessão gráfica:
 ```bash
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
+export HOST_HOME="$HOME"
 ```
 
 O container executa a aplicação com essa identidade, evitando acesso como
@@ -139,6 +140,23 @@ continuar no terminal, mas não deve mais produzir `SIGABRT` nem encerrar o
 container com código 134/139.
 
 Feche a janela Qt, ou pressione `Q` ou `Esc`, para encerrar o vídeo.
+
+### Desconexão e reconexão da câmera
+
+O tempo máximo de espera por um frame é de um segundo. Se a comunicação for
+interrompida, a captura para e a interface oferece `Reconectar` ou
+`Fechar aplicativo`. A reconexão procura a mesma câmera pelo número serial,
+reaplica frame rate, exposição e timeout e então reinicia a captura.
+
+### Printscreen
+
+O botão `Salvar printscreen` abre um seletor de arquivo para PNG ou JPEG. A
+imagem salva contém o último frame processado, as marcações da linha laser e um
+painel com data, horário, contagem de pontos e todas as medições daquele frame.
+
+Quando `HOST_HOME="$HOME"` é exportado, o diálogo pode salvar nas pastas da
+conta do usuário no host. Sem essa variável, os arquivos são persistidos na
+pasta `screenshots` do projeto.
 
 ### Detecção da linha laser
 

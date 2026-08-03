@@ -97,6 +97,18 @@ public:
     void stop() noexcept;
 
     /**
+     * @brief Refaz a conexao com a mesma camera usada na construcao.
+     *
+     * @details A camera e localizada pelo numero serial, pois o indice no
+     * barramento pode mudar depois que o cabo for removido e conectado.
+     * A configuracao de timeout de captura tambem e reaplicada.
+     *
+     * @throws std::runtime_error Se a camera ainda nao estiver disponivel ou
+     * alguma operacao FlyCapture2 falhar.
+     */
+    void reconnect();
+
+    /**
      * @brief Captura um frame e o converte para BGR OpenCV.
      *
      * @return Matriz CV_8UC3 com copia propria dos dados do frame.
@@ -127,11 +139,22 @@ private:
         const char* operation
     );
 
+    /**
+     * @brief Limita o bloqueio de RetrieveBuffer quando os frames cessarem.
+     *
+     * @throws std::runtime_error Se a configuracao nao puder ser consultada ou
+     * aplicada pela camera.
+     */
+    void configureGrabTimeout();
+
     /// Objeto nativo de acesso a camera.
     FlyCapture2::Camera camera_;
 
     /// Metadados retornados pela camera conectada.
     FlyCapture2::CameraInfo cameraInfo_;
+
+    /// Numero serial usado para reencontrar a mesma camera apos desconexao.
+    unsigned int cameraSerialNumber_ = 0;
 
     /// Buffer bruto reutilizado durante a captura.
     FlyCapture2::Image rawImage_;

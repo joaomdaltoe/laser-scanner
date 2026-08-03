@@ -16,15 +16,25 @@
 #include <opencv2/imgproc.hpp>
 
 #include <QApplication>
+#include <QAbstractButton>
+#include <QCursor>
+#include <QDateTime>
+#include <QDir>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QImage>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMainWindow>
+#include <QMessageBox>
+#include <QPainter>
 #include <QPixmap>
+#include <QPushButton>
 #include <QSizePolicy>
 #include <QSlider>
+#include <QStandardPaths>
 #include <QStatusBar>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -235,6 +245,7 @@ public:
     )
         : QMainWindow(parent),
           camera_(camera),
+          targetFramesPerSecond_(targetFramesPerSecond),
           framePeriodMilliseconds_(
               std::max(1, static_cast<int>(std::lround(
                   1000.0 / targetFramesPerSecond
@@ -396,6 +407,12 @@ private:
 
         sideLayout->addWidget(controlsGroup);
         sideLayout->addWidget(measurementsGroup);
+        printscreenButton_ = new QPushButton("Salvar printscreen", sidePanel);
+        printscreenButton_->setEnabled(false);
+        connect(printscreenButton_, &QPushButton::clicked, this, [this]() {
+            savePrintscreen();
+        });
+        sideLayout->addWidget(printscreenButton_);
         sideLayout->addStretch(1);
 
         QWidget* central = new QWidget(this);
@@ -438,7 +455,12 @@ private:
                 );
             measurements_.update(measurementImagePoints);
 
-            frameWidget_->setFrame(matToImage(frame));
+            lastFrameImage_ = matToImage(frame);
+            lastFrameCapturedAt_ = QDateTime::currentDateTime();
+            lastDetectedPointCount_ = laserPoints.size();
+            lastMarkedPointCount_ = measurementImagePoints.size();
+            frameWidget_->setFrame(lastFrameImage_);
+            printscreenButton_->setEnabled(true);
             detectedPointsLabel_->setText(QString("Pontos detectados: %1").arg(
                 static_cast<qulonglong>(laserPoints.size())
             ));
@@ -464,8 +486,242 @@ private:
             connectedLabel_->setText("Camera: desconectada");
             laserLabel_->setText("Laser: inativo");
             frameTimer_.stop();
-            camera_.stop();
+            showCameraDisconnectedDialog(
+                QString::fromLocal8Bit(exception.what())
+            );
         }
+    }
+
+    void showCameraDisconnectedDialog(const QString& errorMessage)
+    {
+        if (recoveryDialogOpen_)
+        {
+            return;
+        }
+
+        recoveryDialogOpen_ = true;
+
+        QMessageBox dialog(
+            QMessageBox::Critical,
+            "Camera desconectada",
+            QString("A comunicacao com a camera foi interrompida."
+                    "\n\nDetalhes: %1").arg(errorMessage),
+            QMessageBox::NoButton,
+            this
+        );
+        QAbstractButton* reconnectButton = dialog.addButton(
+            "Reconectar",
+            QMessageBox::AcceptRole
+        );
+        QAbstractButton* closeButton = dialog.addButton(
+            "Fechar aplicativo",
+            QMessageBox::RejectRole
+        );
+        dialog.setDefaultButton(
+            qobject_cast<QPushButton*>(reconnectButton)
+        );
+        dialog.exec();
+
+        const bool reconnectRequested =
+            dialog.clickedButton() == reconnectButton;
+        recoveryDialogOpen_ = false;
+
+        if (!reconnectRequested || dialog.clickedButton() == closeButton)
+        {
+            close();
+            return;
+        }
+
+        reconnectCamera();
+    }
+
+    void reconnectCamera()
+    {
+        connectedLabel_->setText("Camera: reconectando...");
+        statusBar()->showMessage("Procurando a camera pelo numero serial...");
+        QApplication::setOverrideCursor(QCursor(Qt::WaitCursor));
+
+        try
+        {
+            camera_.reconnect();
+            if (!camera_.configureFrameRate(
+                static_cast<float>(targetFramesPerSecond_)
+            ))
+            {
+                std::cerr
+                    << "Aviso: a camera reconectada nao aceitou o frame rate."
+                    << std::endl;
+            }
+
+            configureExposureControl();
+            refreshExposureControls();
+            camera_.start();
+
+            connectedLabel_->setText("Camera: conectada");
+            laserLabel_->setText("Laser: inativo");
+            framesSinceLastFpsUpdate_ = 0;
+            fpsClock_ = Clock::now();
+            frameTimer_.start(framePeriodMilliseconds_);
+            statusBar()->showMessage("Camera reconectada.", 3000);
+            QApplication::restoreOverrideCursor();
+        }
+        catch (const std::exception& exception)
+        {
+            QApplication::restoreOverrideCursor();
+            connectedLabel_->setText("Camera: desconectada");
+            std::cerr
+                << "Falha ao reconectar camera: " << exception.what()
+                << std::endl;
+
+            // Adia o novo dialogo para fora do fechamento do dialogo anterior.
+            const QString details = QString::fromLocal8Bit(exception.what());
+            QTimer::singleShot(0, this, [this, details]() {
+                showCameraDisconnectedDialog(details);
+            });
+        }
+    }
+
+    void refreshExposureControls()
+    {
+        exposureSlider_->setRange(0, exposureSliderMaximum_);
+        exposureSlider_->setValue(exposureMicroseconds_);
+        exposureSlider_->setEnabled(exposureControlAvailable_);
+        updateControlLabels();
+    }
+
+    QImage createPrintscreenImage() const
+    {
+        constexpr int panelWidth = 330;
+        constexpr int margin = 18;
+        constexpr int lineHeight = 24;
+
+        const int pointLines = static_cast<int>(
+            measurements_.get_points().size()
+        );
+        const int requiredPanelHeight =
+            margin * 2 + lineHeight * (9 + pointLines);
+        const int outputHeight = std::max(
+            lastFrameImage_.height(),
+            requiredPanelHeight
+        );
+
+        QImage output(
+            lastFrameImage_.width() + panelWidth,
+            outputHeight,
+            QImage::Format_RGB32
+        );
+        output.fill(QColor("#111111"));
+
+        QPainter painter(&output);
+        painter.drawImage(0, 0, lastFrameImage_);
+        painter.setPen(QColor("#dddddd"));
+
+        int y = margin;
+        const int x = lastFrameImage_.width() + margin;
+        auto drawLine = [&](const QString& text) {
+            painter.drawText(x, y, panelWidth - margin * 2, lineHeight,
+                Qt::AlignLeft | Qt::AlignVCenter, text);
+            y += lineHeight;
+        };
+
+        painter.setPen(QColor("#55dd88"));
+        drawLine("Laser Scanner - medicoes");
+        painter.setPen(QColor("#dddddd"));
+        drawLine(lastFrameCapturedAt_.toString("yyyy-MM-dd HH:mm:ss"));
+        drawLine(QString("Frame: %1 x %2").arg(
+            lastFrameImage_.width()
+        ).arg(lastFrameImage_.height()));
+        drawLine(QString("Pontos detectados: %1").arg(
+            static_cast<qulonglong>(lastDetectedPointCount_)
+        ));
+        drawLine(QString("Pontos marcados: %1").arg(
+            static_cast<qulonglong>(lastMarkedPointCount_)
+        ));
+
+        if (measurements_.empty())
+        {
+            drawLine("Sem medicoes disponiveis");
+            return output;
+        }
+
+        drawLine("Y: " + formatMillimeters(measurements_.get_y()));
+        drawLine("Z: " + formatMillimeters(measurements_.get_z()));
+        drawLine("Gap: " + formatMillimeters(measurements_.get_gap()));
+        drawLine("Area: " + formatSquareMillimeters(measurements_.get_area()));
+
+        const std::vector<Measurements::Point>& points =
+            measurements_.get_points();
+        for (std::size_t index = 0; index < points.size(); ++index)
+        {
+            drawLine(QString("Ponto %1: Y %2 mm, Z %3 mm")
+                .arg(static_cast<qulonglong>(index + 1))
+                .arg(points[index].y, 0, 'f', 2)
+                .arg(points[index].z, 0, 'f', 2));
+        }
+
+        return output;
+    }
+
+    void savePrintscreen()
+    {
+        if (lastFrameImage_.isNull())
+        {
+            QMessageBox::information(
+                this,
+                "Printscreen",
+                "Ainda nao existe um frame disponivel para salvar."
+            );
+            return;
+        }
+
+        // Congela frame e medicoes antes de abrir o dialogo. O seletor de
+        // arquivos possui seu proprio loop de eventos e a captura continua ao
+        // fundo enquanto o usuario escolhe o destino.
+        const QImage printscreenImage = createPrintscreenImage();
+        const QString captureTimestamp = lastFrameCapturedAt_.toString(
+            "yyyyMMdd_HHmmss"
+        );
+
+        QString directory = QStandardPaths::writableLocation(
+            QStandardPaths::PicturesLocation
+        );
+        if (directory.isEmpty())
+        {
+            directory = QDir::homePath();
+        }
+
+        const QString suggestedPath = QDir(directory).filePath(
+            "laser-scanner_" +
+            captureTimestamp +
+            ".png"
+        );
+        QString filePath = QFileDialog::getSaveFileName(
+            this,
+            "Salvar printscreen",
+            suggestedPath,
+            "Imagem PNG (*.png);;Imagem JPEG (*.jpg *.jpeg)"
+        );
+        if (filePath.isEmpty())
+        {
+            return;
+        }
+
+        if (QFileInfo(filePath).suffix().isEmpty())
+        {
+            filePath += ".png";
+        }
+
+        if (!printscreenImage.save(filePath))
+        {
+            QMessageBox::critical(
+                this,
+                "Falha ao salvar",
+                "Nao foi possivel salvar o printscreen no local escolhido."
+            );
+            return;
+        }
+
+        statusBar()->showMessage("Printscreen salvo em " + filePath, 5000);
     }
 
     void applyExposureIfNeeded()
@@ -543,6 +799,7 @@ private:
     }
 
     FlyCaptureCamera& camera_;
+    double targetFramesPerSecond_ = 30.0;
     ImagePathTracker imagePathTracker_;
     Measurements measurements_;
     QTimer frameTimer_;
@@ -563,6 +820,12 @@ private:
     QLabel* connectedLabel_ = nullptr;
     QLabel* fpsLabel_ = nullptr;
     QLabel* laserLabel_ = nullptr;
+    QPushButton* printscreenButton_ = nullptr;
+    QImage lastFrameImage_;
+    QDateTime lastFrameCapturedAt_;
+    std::size_t lastDetectedPointCount_ = 0;
+    std::size_t lastMarkedPointCount_ = 0;
+    bool recoveryDialogOpen_ = false;
     int framePeriodMilliseconds_ = 33;
     int framesSinceLastFpsUpdate_ = 0;
     Clock::time_point fpsClock_ = Clock::now();
