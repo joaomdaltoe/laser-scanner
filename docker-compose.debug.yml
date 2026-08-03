@@ -1,0 +1,28 @@
+version: "3.3"
+
+services:
+  laser-scanner:
+    image: labsolda:labsolda-laser-scanner-debug
+    container_name: laser-scanner-debug
+
+    build:
+      args:
+        INSTALL_DEBUG_TOOLS: "1"
+        CMAKE_BUILD_TYPE: RelWithDebInfo
+
+    command:
+      - gdb
+      - --quiet
+      - --batch
+      - -ex
+      - set pagination off
+      - -ex
+      - handle SIGPIPE nostop noprint pass
+      - -ex
+      - run
+      - -ex
+      - info sharedlibrary
+      - -ex
+      - thread apply all backtrace full
+      - --args
+      - ./build/laser_scanner
