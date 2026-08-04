@@ -12,6 +12,7 @@ RUN apt-get update \
     cmake \
     pkg-config \
     libopencv-dev \
+    tzdata \
     qtbase5-dev \
     /tmp/flycapture2/libflycapture-2*.deb \
  && if [ "$INSTALL_DEBUG_TOOLS" = "1" ]; then \

@@ -25,6 +25,7 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QImage>
+#include <QImageWriter>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMainWindow>
@@ -32,11 +33,12 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
+#include <QSaveFile>
 #include <QSizePolicy>
 #include <QSlider>
-#include <QStandardPaths>
 #include <QStatusBar>
 #include <QTimer>
+#include <QTimeZone>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -51,6 +53,20 @@
 
 namespace
 {
+QDateTime saoPauloDateTime()
+{
+    const QDateTime utcNow = QDateTime::currentDateTimeUtc();
+    const QTimeZone saoPauloZone(QByteArrayLiteral("America/Sao_Paulo"));
+    if (saoPauloZone.isValid())
+    {
+        return utcNow.toTimeZone(saoPauloZone);
+    }
+
+    // Fallback para imagens Linux sem a base de fusos horarios. Sao Paulo
+    // permanece em UTC-3 desde 2019.
+    return utcNow.addSecs(-3 * 60 * 60);
+}
+
 class FrameWidget final : public QLabel
 {
 public:
@@ -456,7 +472,7 @@ private:
             measurements_.update(measurementImagePoints);
 
             lastFrameImage_ = matToImage(frame);
-            lastFrameCapturedAt_ = QDateTime::currentDateTime();
+            lastFrameCapturedAt_ = saoPauloDateTime();
             lastDetectedPointCount_ = laserPoints.size();
             lastMarkedPointCount_ = measurementImagePoints.size();
             frameWidget_->setFrame(lastFrameImage_);
@@ -641,6 +657,7 @@ private:
         if (measurements_.empty())
         {
             drawLine("Sem medicoes disponiveis");
+            painter.end();
             return output;
         }
 
@@ -659,6 +676,7 @@ private:
                 .arg(points[index].z, 0, 'f', 2));
         }
 
+        painter.end();
         return output;
     }
 
@@ -682,12 +700,33 @@ private:
             "yyyyMMdd_HHmmss"
         );
 
-        QString directory = QStandardPaths::writableLocation(
-            QStandardPaths::PicturesLocation
+        QString exportDirectory = QString::fromLocal8Bit(
+            qgetenv("LASER_SCANNER_EXPORT_DIR")
         );
-        if (directory.isEmpty())
+        if (exportDirectory.isEmpty())
         {
-            directory = QDir::homePath();
+            exportDirectory = QDir::homePath();
+        }
+        exportDirectory = QDir::cleanPath(
+            QFileInfo(exportDirectory).absoluteFilePath()
+        );
+
+        if (!QFileInfo(exportDirectory).isDir())
+        {
+            QMessageBox::critical(
+                this,
+                "Pasta de exportacao indisponivel",
+                "O volume de exportacao nao existe dentro do container:\n" +
+                    exportDirectory +
+                    "\n\nConfira HOST_HOME no docker-compose."
+            );
+            return;
+        }
+
+        QString directory = QDir(exportDirectory).filePath("Pictures");
+        if (!QFileInfo(directory).isDir())
+        {
+            directory = exportDirectory;
         }
 
         const QString suggestedPath = QDir(directory).filePath(
@@ -695,33 +734,139 @@ private:
             captureTimestamp +
             ".png"
         );
+        QString selectedFilter;
         QString filePath = QFileDialog::getSaveFileName(
             this,
             "Salvar printscreen",
             suggestedPath,
-            "Imagem PNG (*.png);;Imagem JPEG (*.jpg *.jpeg)"
+            "Imagem PNG (*.png);;Imagem JPEG (*.jpg *.jpeg)",
+            &selectedFilter
         );
         if (filePath.isEmpty())
         {
             return;
         }
 
-        if (QFileInfo(filePath).suffix().isEmpty())
+        QByteArray imageFormat;
+        QString suffix = QFileInfo(filePath).suffix().toLower();
+        if (suffix.isEmpty())
         {
-            filePath += ".png";
+            if (selectedFilter.startsWith("Imagem JPEG"))
+            {
+                filePath += ".jpg";
+                suffix = "jpg";
+            }
+            else
+            {
+                filePath += ".png";
+                suffix = "png";
+            }
         }
 
-        if (!printscreenImage.save(filePath))
+        if (suffix == "jpg" || suffix == "jpeg")
         {
-            QMessageBox::critical(
+            imageFormat = "jpeg";
+        }
+        else if (suffix == "png")
+        {
+            imageFormat = "png";
+        }
+        else
+        {
+            QMessageBox::warning(
                 this,
-                "Falha ao salvar",
-                "Nao foi possivel salvar o printscreen no local escolhido."
+                "Formato invalido",
+                "Use a extensao .png, .jpg ou .jpeg."
             );
             return;
         }
 
-        statusBar()->showMessage("Printscreen salvo em " + filePath, 5000);
+        if (!QImageWriter::supportedImageFormats().contains(imageFormat))
+        {
+            QMessageBox::critical(
+                this,
+                "Formato Qt indisponivel",
+                "A imagem Qt instalada no container nao possui o codificador "
+                "para " + QString::fromLatin1(imageFormat) + "."
+            );
+            return;
+        }
+
+        const QString absoluteFilePath = QDir::cleanPath(
+            QFileInfo(filePath).absoluteFilePath()
+        );
+        const QString exportPrefix = exportDirectory.endsWith(QDir::separator())
+            ? exportDirectory
+            : exportDirectory + QDir::separator();
+        if (!absoluteFilePath.startsWith(exportPrefix))
+        {
+            QMessageBox::warning(
+                this,
+                "Destino fora do volume exportado",
+                "Aplicacoes em Docker somente conseguem exportar arquivos "
+                "por diretorios montados do host. Escolha uma pasta dentro "
+                "de:\n" + exportDirectory
+            );
+            return;
+        }
+
+        const QFileInfo targetInfo(absoluteFilePath);
+        if (!targetInfo.dir().exists())
+        {
+            QMessageBox::critical(
+                this,
+                "Diretorio inexistente",
+                "O diretorio escolhido nao existe:\n" +
+                    targetInfo.dir().absolutePath()
+            );
+            return;
+        }
+
+        QSaveFile outputFile(absoluteFilePath);
+        if (!outputFile.open(QIODevice::WriteOnly))
+        {
+            QMessageBox::critical(
+                this,
+                "Falha ao abrir o arquivo",
+                "Nao foi possivel criar o arquivo no volume do host:\n" +
+                    absoluteFilePath + "\n\nMotivo: " +
+                    outputFile.errorString()
+            );
+            return;
+        }
+
+        QImageWriter writer(&outputFile, imageFormat);
+        writer.setQuality(95);
+        if (!writer.write(printscreenImage))
+        {
+            const QString writerError = writer.errorString();
+            outputFile.cancelWriting();
+            QMessageBox::critical(
+                this,
+                "Falha ao codificar a imagem",
+                "O Qt nao conseguiu gerar a imagem no formato " +
+                    QString::fromLatin1(imageFormat) +
+                    ".\n\nMotivo: " + writerError
+            );
+            return;
+        }
+
+        if (!outputFile.commit())
+        {
+            QMessageBox::critical(
+                this,
+                "Falha ao salvar",
+                "A imagem foi gerada, mas nao foi possivel concluir a escrita "
+                "no host:\n" + absoluteFilePath + "\n\nMotivo: " +
+                    outputFile.errorString()
+            );
+            return;
+        }
+
+        statusBar()->showMessage(
+            "Printscreen salvo em " + absoluteFilePath,
+            5000
+        );
     }
 
     void applyExposureIfNeeded()

@@ -23,6 +23,8 @@ services:
     environment:
       DISPLAY: "${DISPLAY}"
       HOME: /host-home
+      LASER_SCANNER_EXPORT_DIR: /host-home
+      TZ: America/Sao_Paulo
       XDG_RUNTIME_DIR: /tmp/laser-scanner-runtime
       # O libdbus 1.12 nao deve encerrar o processo por uma falha interna da
       # ponte AT-SPI do Qt 5.9. O aviso permanece visivel para diagnostico.
@@ -30,9 +32,9 @@ services:
 
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      # Permite que o seletor de arquivos Qt salve no host. Sem HOST_HOME, os
-      # arquivos ficam na pasta screenshots do projeto.
-      - "${HOST_HOME:-./screenshots}:/host-home:rw"
+      # HOST_HOME deve ser um diretorio existente e gravavel do host. Exigir a
+      # variavel evita que o Docker crie silenciosamente uma pasta como root.
+      - "${HOST_HOME:?Defina HOST_HOME com o diretorio pessoal do usuario}:/host-home:rw"
 
     stdin_open: true
     tty: true

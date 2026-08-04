@@ -110,6 +110,17 @@ export HOST_GID="$(id -g)"
 export HOST_HOME="$HOME"
 ```
 
+`HOST_HOME` é obrigatório e deve apontar para uma pasta que já exista e seja
+gravável pelo usuário informado em `HOST_UID`. O Compose interrompe a execução
+com uma mensagem clara se a variável estiver ausente, em vez de criar uma
+pasta pertencente a `root`.
+
+Confira antes de executar:
+
+```bash
+test -d "$HOST_HOME" && test -w "$HOST_HOME"
+```
+
 O container executa a aplicação com essa identidade, evitando acesso como
 `root` ao X11 e ao barramento de acessibilidade AT-SPI da sessão. Se o X11
 ainda exigir autorização explícita, libere somente o usuário atual:
@@ -154,9 +165,13 @@ O botão `Salvar printscreen` abre um seletor de arquivo para PNG ou JPEG. A
 imagem salva contém o último frame processado, as marcações da linha laser e um
 painel com data, horário, contagem de pontos e todas as medições daquele frame.
 
-Quando `HOST_HOME="$HOME"` é exportado, o diálogo pode salvar nas pastas da
-conta do usuário no host. Sem essa variável, os arquivos são persistidos na
-pasta `screenshots` do projeto.
+O diretório informado por `HOST_HOME` é montado como `/host-home` dentro do
+container. O diálogo pode salvar em qualquer pasta abaixo desse diretório; os
+arquivos aparecem imediatamente na pasta correspondente do host. Destinos fora
+de `/host-home` são recusados, pois não têm correspondência garantida no host.
+
+O container e os timestamps incorporados nas imagens usam explicitamente o
+fuso `America/Sao_Paulo` (GMT-3).
 
 ### Detecção da linha laser
 
