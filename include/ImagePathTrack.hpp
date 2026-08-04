@@ -6,8 +6,8 @@
  *
  * @details
  * Este arquivo define a interface usada para detectar, desenhar e simplificar
- * o caminho do laser em frames BGR. TODO: complementar com as premissas de
- * iluminacao, camera monocromatica e geometria do perfil.
+ * o caminho do laser em frames BGR. Considera câmera monocromática, localizada
+ * verticalmente acima do chanfro a ser analisado.
  */
 
 #include <opencv2/core.hpp>
@@ -85,8 +85,6 @@ public:
      * A selecao usa repetidamente o maior erro retornado por RDP() para inserir
      * novos pontos entre segmentos ja escolhidos.
      *
-     * @note TODO: confirmar se "pontos de inflexao" e o termo final ou se esta
-     * rotina representa uma simplificacao geometrica do perfil.
      */
     std::vector<int> findInflectionPoints(const std::vector<float> path, int nInflectionPoints) const;
 
@@ -100,8 +98,7 @@ public:
      *
      * @pre x0 e x1 devem ser indices validos, e x1 deve ser maior que x0.
      *
-     * @note TODO: decidir se o nome deve permanecer como RDP ou ser expandido
-     * para refletir o algoritmo Ramer-Douglas-Peucker.
+     * @note Algoritmo Ramer-Douglas-Pecker 
      */
     std::pair<int,float> RDP(const std::vector<float> points, int x0, int x1) const;
 private:

@@ -1,10 +1,6 @@
 /**
  * @file Measurements.cpp
  * @brief Implementa a conversao de pontos de imagem em medidas geometricas.
- *
- * @details
- * TODO: complementar com referencias da calibracao e validacao numerica dos
- * calculos de gap e area.
  */
 
 #include "Measurements.hpp"

@@ -1,10 +1,6 @@
 /**
  * @file VideoViewer.cpp
  * @brief Implementa a interface Qt de visualizacao, controle e medicao.
- *
- * @details
- * TODO: complementar com o fluxo de operacao da tela, atalhos, limites dos
- * controles e significado das medicoes exibidas.
  */
 
 #include "VideoViewer.hpp"

@@ -9,6 +9,12 @@ services:
       args:
         INSTALL_DEBUG_TOOLS: "1"
         CMAKE_BUILD_TYPE: RelWithDebInfo
+        
+    cap_add:
+      - SYS_PTRACE
+
+    security_opt:
+      - seccomp:unconfined
 
     command:
       - gdb

@@ -3,8 +3,9 @@
  * @brief Implementa a deteccao e simplificacao do caminho da linha laser.
  *
  * @details
- * TODO: complementar com a justificativa dos parametros de busca, suavizacao e
- * penalizacao usados pelo rastreador.
+ * Recebe estrutura de dados cv::Mat de um frame e nele procura, através da aplicação
+ * de um contraste (determinado pelo limiar parametrizável), a linha laser e seus pontos de 
+ * inflexão (calculádos por uma aplicação do algoritmo Ramer-Douglas-Peucker).
  */
 
 #include "ImagePathTrack.hpp"
@@ -68,16 +69,12 @@ std::vector<cv::Point2f> ImagePathTracker::detect(const cv::Mat& bgrFrame) const
     const int width = intensity.cols;
     const int height = intensity.rows;
 
-    // Cada linha desta matriz corresponde a uma coluna da imagem original. Isso
-    // deixa os pixels percorridos pelo rastreador contiguos na memoria.
     cv::Mat intensityByColumn;
     cv::transpose(intensity, intensityByColumn);
 
     std::vector<float> previousScores(static_cast<std::size_t>(height));
     std::vector<float> currentScores(static_cast<std::size_t>(height));
 
-    // Guarda, para cada estado (x, y), qual deslocamento levou ao melhor caminho.
-    // O deslocamento [-2, 2] e armazenado como [0, 4].
     cv::Mat1b predecessors(
         width,
         height,
@@ -159,8 +156,6 @@ std::vector<cv::Point2f> ImagePathTracker::detect(const cv::Mat& bgrFrame) const
         std::distance(previousScores.cbegin(), bestLastPosition)
     );
 
-    // Reconstrucao do melhor caminho global usando exatamente as transicoes que
-    // venceram durante a integracao.
     for (int x = width - 1; x > 0; --x)
     {
         const int currentY = coarsePath[static_cast<std::size_t>(x)];
@@ -175,8 +170,6 @@ std::vector<cv::Point2f> ImagePathTracker::detect(const cv::Mat& bgrFrame) const
         0
     );
 
-    // Refina o pixel escolhido pelo caminho global calculando o centroide da
-    // faixa continua que contem esse pixel. O resultado pode ser subpixel.
     for (int x = 0; x < width; ++x)
     {
         const unsigned char* column =
@@ -228,7 +221,6 @@ std::vector<cv::Point2f> ImagePathTracker::detect(const cv::Mat& bgrFrame) const
     std::vector<cv::Point2f> centerline;
     centerline.reserve(static_cast<std::size_t>(width));
 
-    // Pontos ausentes nao participam da media e continuam formando lacunas no desenho.
     for (int x = 0; x < width; ++x)
     {
         if (validPath[static_cast<std::size_t>(x)] == 0)

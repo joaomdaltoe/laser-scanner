@@ -6,8 +6,12 @@
  *
  * @details
  * Este arquivo concentra a representacao das medidas derivadas dos pontos
- * detectados na imagem do laser. TODO: complementar com o modelo de calibracao,
- * origem dos eixos e convencoes fisicas usadas pelo equipamento.
+ * detectados na imagem do laser. Cálculos de conversão pixel -> mm foram
+ * realizados com base em calibração experimental e regressão linear.
+ * 
+ * @note
+ * Eixo Y: Largura horizontal que a câmera enxerga, com origem no centro da imagem
+ * Eixo Z: Altura vertical que a câmera enxerga
  */
 
 #include <opencv2/core.hpp>
@@ -20,8 +24,6 @@
  * @details
  * A classe converte coordenadas em pixels para milimetros, armazena os pontos
  * convertidos e calcula valores agregados como posicao central, gap e area.
- * TODO: documentar a relacao exata entre os eixos da imagem e os eixos fisicos
- * Y/Z do sistema.
  */
 class Measurements final
 {
@@ -29,8 +31,6 @@ public:
     /**
      * @brief Representa um ponto convertido para o sistema de medidas.
      *
-     * @details
-     * TODO: confirmar e documentar a orientacao, origem e sinal dos eixos.
      */
     struct Point final
     {
@@ -50,8 +50,6 @@ public:
      * @throws std::invalid_argument Se algum parametro de calibracao nao for
      * finito.
      *
-     * @note TODO: substituir ou complementar os valores padrao com a origem da
-     * calibracao experimental.
      */
     explicit Measurements(
         double millimetersPerPixel = -0.09719,
@@ -128,8 +126,6 @@ private:
      * @param points Pontos ja convertidos para milimetros.
      * @return Area calculada em milimetros quadrados.
      *
-     * @note TODO: documentar por que o primeiro e o ultimo ponto sao tratados
-     * como limites externos no calculo atual.
      */
     static double polygonArea(const std::vector<Point>& points) noexcept;
 

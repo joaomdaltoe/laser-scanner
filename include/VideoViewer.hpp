@@ -6,8 +6,10 @@
  *
  * @details
  * Este arquivo expoe a classe responsavel por iniciar a janela Qt que captura,
- * processa e exibe os frames da camera. TODO: complementar com requisitos de
- * ambiente, controles disponiveis e fluxo esperado de uso.
+ * processa e exibe os frames da camera. É possível controlar:
+ * Limiar: número que será passado para a classe ImagePathTrack para encontrar a linha laser.
+ * Número de pontos: número de pontos que serão encontrados pelo algoritmo de pontos de inflexão.
+ * Exposição da câmera: número em milissegundos de exposição que a câmera vai fornecer para a classe FlyCaptureCamera.
  */
 
 #include <string>
@@ -20,7 +22,7 @@ class FlyCaptureCamera;
  * @details
  * A classe cria a janela principal, usa a camera fornecida para obter frames,
  * rastreia a linha do laser e mostra medidas calculadas em tempo real.
- * TODO: documentar dependencias de QApplication e comportamento de encerramento.
+ * Para encerrar o sistema, feche a aba criada ou pare execução no terminal executado
  */
 class VideoViewer final
 {

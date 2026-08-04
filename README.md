@@ -10,12 +10,6 @@ instalar o FlyCapture2, o OpenCV, o Qt ou ferramentas de compilação diretament
 no host. O CMake permanece no repositório porque é utilizado internamente durante
 a criação da imagem Docker, mas não deve ser executado manualmente.
 
-## Responsabilidades das classes
-
-- `FlyCaptureCamera`: conexão, captura, tratamento do SDK e conversão para BGR.
-- `ImagePathTrack`: detecção subpixel do centro da faixa laser por intensidade e pontos de inflexão.
-- `VideoViewer`: janela Qt, controles, cadência, indicadores e comandos de teclado.
-
 ## Preparar os pacotes FlyCapture2
 
 O Docker só acessa arquivos dentro da pasta usada como contexto de build. Copie
@@ -34,11 +28,10 @@ ls -lh third_party/flycapture2/libflycapture-2*.deb
 ls -lh third_party/flycapture2/libflycapture-dev*.deb
 ```
 
-## Pré-requisitos do host
+## Pré-requisitos
 
 - Computador x86-64 conectado à câmera GigE.
 - Docker Engine.
-- `docker-compose`.
 - Servidor gráfico X11 ou XWayland para a janela Qt.
 
 Verifique as ferramentas:
@@ -70,11 +63,11 @@ Descubra a interface que alcança a câmera:
 ip -br addr
 ```
 
-Configure o MTU da interface encontrada, substituindo `enp3s0` quando necessário:
+Configure o MTU da interface encontrada, substituindo `enp30s0` quando necessário:
 
 ```bash
-sudo ip link set dev enp3s0 mtu 9000
-ip link show dev enp3s0
+sudo ip link set dev enp30s0 mtu 9000
+ip link show dev enp30s0
 ```
 
 A câmera, a placa de rede e qualquer switch intermediário precisam suportar o
@@ -127,64 +120,19 @@ ainda exigir autorização explícita, libere somente o usuário atual:
 xhost +SI:localuser:"$(id -un)"
 ```
 
-Não use `xhost +`, pois isso libera acesso indiscriminado ao servidor gráfico.
-
 ## Executar
 
 ```bash
 docker-compose up
 ```
 
-Para reconstruir a imagem e executar em um único comando:
-
-```bash
-docker-compose up --build
-```
-
-No Ubuntu 18.04, a combinação Qt 5.9/libdbus 1.12 pode imprimir o aviso
-`last reference on a private connection was dropped without closing the
-connection` ao inicializar a acessibilidade AT-SPI. A aplicação configura esse
-aviso como não fatal antes de criar o `QApplication`; portanto, ele pode
-continuar no terminal, mas não deve mais produzir `SIGABRT` nem encerrar o
-container com código 134/139.
+!!! warning "Atenção"
+    No Ubuntu 18.04, a combinação Qt 5.9/libdbus 1.12 pode imprimir o aviso
+    `last reference on a private connection was dropped without closing the
+    connection` ao inicializar a acessibilidade AT-SPI. A aplicação configura esse
+    aviso como não fatal antes de criar o `QApplication`; portanto, ele pode
+    continuar no terminal, mas não deve mais produzir `SIGABRT` nem encerrar o
+    container com código 134/139.
 
 Feche a janela Qt, ou pressione `Q` ou `Esc`, para encerrar o vídeo.
 
-### Desconexão e reconexão da câmera
-
-O tempo máximo de espera por um frame é de um segundo. Se a comunicação for
-interrompida, a captura para e a interface oferece `Reconectar` ou
-`Fechar aplicativo`. A reconexão procura a mesma câmera pelo número serial,
-reaplica frame rate, exposição e timeout e então reinicia a captura.
-
-### Printscreen
-
-O botão `Salvar printscreen` abre um seletor de arquivo para PNG ou JPEG. A
-imagem salva contém o último frame processado, as marcações da linha laser e um
-painel com data, horário, contagem de pontos e todas as medições daquele frame.
-
-O diretório `HOME` do usuário é montado como `/host-home` dentro do container.
-O diálogo pode salvar em qualquer pasta abaixo desse diretório; os arquivos
-aparecem imediatamente na pasta correspondente do host. Destinos fora de
-`/host-home` são recusados, pois não têm correspondência garantida no host.
-
-O container e os timestamps incorporados nas imagens usam explicitamente o
-fuso `America/Sao_Paulo` (GMT-3).
-
-### Detecção da linha laser
-
-A janela desenha em vermelho o centro detectado da faixa laser. Como a câmera é
-monocromática, a detecção utiliza apenas a intensidade dos pixels; o formato BGR
-é mantido para permitir a sobreposição colorida no vídeo.
-
-O rastreamento combina três etapas: programação dinâmica para escolher uma linha
-brilhante e contínua ao longo da imagem, centroide ponderado para localizar o
-centro subpixel da espessura do laser e uma suavização curta contra ruído. O
-caminho global pode variar até dois pixels verticalmente entre colunas vizinhas.
-
-Durante a execução, os controles ficam disponíveis no painel direito da janela:
-
-- `Threshold`: intensidade mínima, entre 0 e 255, usada para reconhecer o laser.
-- `Exposicao`: tempo de exposição em microssegundos. O intervalo permitido
-  é consultado diretamente na câmera pelo FlyCapture2.
-- `nPontos`: quantidade de pontos de inflexão marcados no caminho detectado.

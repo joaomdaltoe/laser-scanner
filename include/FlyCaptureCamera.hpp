@@ -2,12 +2,12 @@
 
 /**
  * @file FlyCaptureCamera.hpp
- * @brief Declara um wrapper RAII para cameras Point Grey/FLIR FlyCapture2.
+ * @brief Declara um wrapper para cameras Point Grey/FLIR FlyCapture2.
  *
  * @details
  * Este arquivo isola a inicializacao, configuracao e captura de frames da
- * camera FlyCapture2 usada pelo scanner. TODO: complementar com modelos
- * suportados, formato esperado de pixel e requisitos de driver/sistema.
+ * camera FlyCapture2 usada pelo scanner. Suporta o modelo de câmera usado
+ * no laboratório: Flea3 FL3-GE-132S2M.
  */
 
 #include <FlyCapture2.h>

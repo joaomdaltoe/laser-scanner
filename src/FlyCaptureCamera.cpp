@@ -1,10 +1,6 @@
 /**
  * @file FlyCaptureCamera.cpp
  * @brief Implementa o wrapper de acesso a cameras FlyCapture2.
- *
- * @details
- * TODO: complementar com instrucoes de diagnostico para falhas de driver,
- * permissao de dispositivo e compatibilidade de hardware.
  */
 
 #include "FlyCaptureCamera.hpp"
@@ -269,8 +265,6 @@ void FlyCaptureCamera::configureGrabTimeout()
         "GetConfiguration"
     );
 
-    // A 30 FPS, um segundo representa aproximadamente 30 oportunidades de
-    // receber um frame e evita a espera indefinida apos perda da camera.
     configuration.grabTimeout = 1000U;
     throwIfError(
         camera_.SetConfiguration(&configuration),
