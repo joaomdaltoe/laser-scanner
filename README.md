@@ -107,18 +107,16 @@ Informe ao Compose o UID e o GID do usuário da sessão gráfica:
 ```bash
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
-export HOST_HOME="$HOME"
 ```
 
-`HOST_HOME` é obrigatório e deve apontar para uma pasta que já exista e seja
-gravável pelo usuário informado em `HOST_UID`. O Compose interrompe a execução
-com uma mensagem clara se a variável estiver ausente, em vez de criar uma
-pasta pertencente a `root`.
+O Compose monta automaticamente a variável `HOME` da sessão atual. Execute os
+comandos como o usuário da sessão gráfica, sem `sudo`, para que ela corresponda
+à pasta pessoal e ao `HOST_UID` informados.
 
 Confira antes de executar:
 
 ```bash
-test -d "$HOST_HOME" && test -w "$HOST_HOME"
+test -n "$HOME" && test -d "$HOME" && test -w "$HOME"
 ```
 
 O container executa a aplicação com essa identidade, evitando acesso como
@@ -165,10 +163,10 @@ O botão `Salvar printscreen` abre um seletor de arquivo para PNG ou JPEG. A
 imagem salva contém o último frame processado, as marcações da linha laser e um
 painel com data, horário, contagem de pontos e todas as medições daquele frame.
 
-O diretório informado por `HOST_HOME` é montado como `/host-home` dentro do
-container. O diálogo pode salvar em qualquer pasta abaixo desse diretório; os
-arquivos aparecem imediatamente na pasta correspondente do host. Destinos fora
-de `/host-home` são recusados, pois não têm correspondência garantida no host.
+O diretório `HOME` do usuário é montado como `/host-home` dentro do container.
+O diálogo pode salvar em qualquer pasta abaixo desse diretório; os arquivos
+aparecem imediatamente na pasta correspondente do host. Destinos fora de
+`/host-home` são recusados, pois não têm correspondência garantida no host.
 
 O container e os timestamps incorporados nas imagens usam explicitamente o
 fuso `America/Sao_Paulo` (GMT-3).

@@ -32,9 +32,9 @@ services:
 
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      # HOST_HOME deve ser um diretorio existente e gravavel do host. Exigir a
-      # variavel evita que o Docker crie silenciosamente uma pasta como root.
-      - "${HOST_HOME:?Defina HOST_HOME com o diretorio pessoal do usuario}:/host-home:rw"
+      # Usa diretamente a HOME da sessao que iniciou o Compose. Esta sintaxe e
+      # compativel com o docker-compose fornecido pelo Ubuntu 18.04.
+      - "${HOME}:/host-home:rw"
 
     stdin_open: true
     tty: true

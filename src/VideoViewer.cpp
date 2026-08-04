@@ -718,7 +718,7 @@ private:
                 "Pasta de exportacao indisponivel",
                 "O volume de exportacao nao existe dentro do container:\n" +
                     exportDirectory +
-                    "\n\nConfira HOST_HOME no docker-compose."
+                    "\n\nConfira HOME e o volume /host-home no docker-compose."
             );
             return;
         }
