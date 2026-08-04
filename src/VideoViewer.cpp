@@ -419,7 +419,7 @@ private:
 
         sideLayout->addWidget(controlsGroup);
         sideLayout->addWidget(measurementsGroup);
-        printscreenButton_ = new QPushButton("Salvar printscreen", sidePanel);
+        printscreenButton_ = new QPushButton("Salvar Imagem", sidePanel);
         printscreenButton_->setEnabled(false);
         connect(printscreenButton_, &QPushButton::clicked, this, [this]() {
             savePrintscreen();
