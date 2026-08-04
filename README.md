@@ -1,19 +1,14 @@
 # Laser Scanner Linux
 
-Aplicação C++ para uma câmera compatível com FlyCapture2. O programa captura
-quadros continuamente, converte cada imagem para BGR (`cv::Mat`) e exibe o vídeo
-em uma janela do OpenCV limitada a aproximadamente 30 FPS.
+Aplicação C++/Qt para uma câmera compatível com FlyCapture2. O programa captura
+quadros continuamente, converte cada imagem para BGR (`cv::Mat`), preserva o
+processamento e os desenhos em OpenCV e exibe o vídeo em uma janela Qt limitada
+a aproximadamente 30 FPS.
 
 A compilação e a execução são feitas exclusivamente com Docker. Não é necessário
-instalar o FlyCapture2, o OpenCV ou ferramentas de compilação diretamente no host.
-O CMake permanece no repositório porque é utilizado internamente durante a criação
-da imagem Docker, mas não deve ser executado manualmente.
-
-## Responsabilidades das classes
-
-- `FlyCaptureCamera`: conexão, captura, tratamento do SDK e conversão para BGR.
-- `ImagePathTrack`: detecção subpixel do centro da faixa laser por intensidade e pontos de inflexão.
-- `VideoViewer`: janela do OpenCV, controles, cadência e comandos de teclado.
+instalar o FlyCapture2, o OpenCV, o Qt ou ferramentas de compilação diretamente
+no host. O CMake permanece no repositório porque é utilizado internamente durante
+a criação da imagem Docker, mas não deve ser executado manualmente.
 
 ## Preparar os pacotes FlyCapture2
 
@@ -33,12 +28,11 @@ ls -lh third_party/flycapture2/libflycapture-2*.deb
 ls -lh third_party/flycapture2/libflycapture-dev*.deb
 ```
 
-## Pré-requisitos do host
+## Pré-requisitos
 
 - Computador x86-64 conectado à câmera GigE.
 - Docker Engine.
-- `docker-compose`.
-- Servidor gráfico X11 ou XWayland para a janela do OpenCV.
+- Servidor gráfico X11 ou XWayland para a janela Qt.
 
 Verifique as ferramentas:
 
@@ -69,11 +63,11 @@ Descubra a interface que alcança a câmera:
 ip -br addr
 ```
 
-Configure o MTU da interface encontrada, substituindo `enp3s0` quando necessário:
+Configure o MTU da interface encontrada, substituindo `enp30s0` quando necessário:
 
 ```bash
-sudo ip link set dev enp3s0 mtu 9000
-ip link show dev enp3s0
+sudo ip link set dev enp30s0 mtu 9000
+ip link show dev enp30s0
 ```
 
 A câmera, a placa de rede e qualquer switch intermediário precisam suportar o
@@ -99,15 +93,32 @@ Confira a imagem criada:
 docker image ls | grep laser-scanner
 ```
 
-## Permitir a janela do OpenCV
+## Permitir a janela Qt
 
-Autorize temporariamente o usuário `root` do container a acessar o X11 local:
+Informe ao Compose o UID e o GID do usuário da sessão gráfica:
 
 ```bash
-xhost +SI:localuser:root
+export HOST_UID="$(id -u)"
+export HOST_GID="$(id -g)"
 ```
 
-Não use `xhost +`, pois isso libera acesso indiscriminado ao servidor gráfico.
+O Compose monta automaticamente a variável `HOME` da sessão atual. Execute os
+comandos como o usuário da sessão gráfica, sem `sudo`, para que ela corresponda
+à pasta pessoal e ao `HOST_UID` informados.
+
+Confira antes de executar:
+
+```bash
+test -n "$HOME" && test -d "$HOME" && test -w "$HOME"
+```
+
+O container executa a aplicação com essa identidade, evitando acesso como
+`root` ao X11 e ao barramento de acessibilidade AT-SPI da sessão. Se o X11
+ainda exigir autorização explícita, libere somente o usuário atual:
+
+```bash
+xhost +SI:localuser:"$(id -un)"
+```
 
 ## Executar
 
@@ -115,27 +126,13 @@ Não use `xhost +`, pois isso libera acesso indiscriminado ao servidor gráfico.
 docker-compose up
 ```
 
-Para reconstruir a imagem e executar em um único comando:
+!!! warning "Atenção"
+    No Ubuntu 18.04, a combinação Qt 5.9/libdbus 1.12 pode imprimir o aviso
+    `last reference on a private connection was dropped without closing the
+    connection` ao inicializar a acessibilidade AT-SPI. A aplicação configura esse
+    aviso como não fatal antes de criar o `QApplication`; portanto, ele pode
+    continuar no terminal, mas não deve mais produzir `SIGABRT` nem encerrar o
+    container com código 134/139.
 
-```bash
-docker-compose up --build
-```
+Feche a janela Qt, ou pressione `Q` ou `Esc`, para encerrar o vídeo.
 
-Pressione `Q` ou `Esc` na janela do OpenCV para encerrar o vídeo.
-
-### Detecção da linha laser
-
-A janela desenha em vermelho o centro detectado da faixa laser. Como a câmera é
-monocromática, a detecção utiliza apenas a intensidade dos pixels; o formato BGR
-é mantido para permitir a sobreposição colorida no vídeo.
-
-O rastreamento combina três etapas: programação dinâmica para escolher uma linha
-brilhante e contínua ao longo da imagem, centroide ponderado para localizar o
-centro subpixel da espessura do laser e uma suavização curta contra ruído. O
-caminho global pode variar até dois pixels verticalmente entre colunas vizinhas.
-
-Durante a execução, dois controles ficam disponíveis na janela:
-
-- `Limiar`: intensidade mínima, entre 0 e 255, usada para reconhecer o laser.
-- `Exposição (µs)`: tempo de exposição em microssegundos. O intervalo permitido
-  é consultado diretamente na câmera pelo FlyCapture2.

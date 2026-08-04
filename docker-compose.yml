@@ -8,14 +8,33 @@ services:
     
     image: labsolda:labsolda-laser-scanner-test
     container_name: laser-scanner
+    # Usa a identidade da sessao grafica do host. Isso tambem permite que o Qt
+    # autentique no barramento AT-SPI anunciado pelo servidor X11.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
 
     network_mode: host
 
+    cap_add:
+      - SYS_PTRACE
+
+    security_opt:
+      - seccomp:unconfined
+
     environment:
       DISPLAY: "${DISPLAY}"
+      HOME: /host-home
+      LASER_SCANNER_EXPORT_DIR: /host-home
+      TZ: America/Sao_Paulo
+      XDG_RUNTIME_DIR: /tmp/laser-scanner-runtime
+      # O libdbus 1.12 nao deve encerrar o processo por uma falha interna da
+      # ponte AT-SPI do Qt 5.9. O aviso permanece visivel para diagnostico.
+      DBUS_FATAL_WARNINGS: "0"
 
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Usa diretamente a HOME da sessao que iniciou o Compose. Esta sintaxe e
+      # compativel com o docker-compose fornecido pelo Ubuntu 18.04.
+      - "${HOME}:/host-home:rw"
 
     stdin_open: true
     tty: true

@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(OpenCV REQUIRED)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 
 find_library(
 	FLY_CAPTURE_LIBRARY
@@ -36,6 +38,7 @@ add_executable(laser_scanner
 	src/main.cpp
 	src/FlyCaptureCamera.cpp
 	src/ImagePathTrack.cpp
+	src/Measurements.cpp
 	src/VideoViewer.cpp
 )
 
@@ -48,8 +51,10 @@ target_include_directories(laser_scanner PRIVATE
 target_link_libraries(laser_scanner PRIVATE
 	"${FLY_CAPTURE_LIBRARY}"
 	${OpenCV_LIBS}
+	Qt${QT_VERSION_MAJOR}::Widgets
 )
 
 message(STATUS "FlyCapture include: ${FLY_CAPTURE_INCLUDE_DIR}")
 message(STATUS "FlyCapture library: ${FLY_CAPTURE_LIBRARY}")
 message(STATUS "OpenCV version: ${OpenCV_VERSION}")
+message(STATUS "Qt major version: ${QT_VERSION_MAJOR}")

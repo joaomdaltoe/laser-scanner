@@ -1,3 +1,8 @@
+/**
+ * @file FlyCaptureCamera.cpp
+ * @brief Implementa o wrapper de acesso a cameras FlyCapture2.
+ */
+
 #include "FlyCaptureCamera.hpp"
 
 #include <algorithm>
@@ -36,6 +41,8 @@ FlyCaptureCamera::FlyCaptureCamera(unsigned int cameraIndex)
     try
     {
         throwIfError(camera_.GetCameraInfo(&cameraInfo_), "GetCameraInfo");
+        cameraSerialNumber_ = cameraInfo_.serialNumber;
+        configureGrabTimeout();
     }
     catch (...)
     {
@@ -176,6 +183,42 @@ void FlyCaptureCamera::stop() noexcept
     capturing_ = false;
 }
 
+void FlyCaptureCamera::reconnect()
+{
+    stop();
+
+    if (connected_)
+    {
+        camera_.Disconnect();
+        connected_ = false;
+    }
+
+    FlyCapture2::BusManager busManager;
+    FlyCapture2::PGRGuid cameraGuid;
+    throwIfError(
+        busManager.GetCameraFromSerialNumber(
+            cameraSerialNumber_,
+            &cameraGuid
+        ),
+        "GetCameraFromSerialNumber"
+    );
+
+    throwIfError(camera_.Connect(&cameraGuid), "Reconnect");
+    connected_ = true;
+
+    try
+    {
+        throwIfError(camera_.GetCameraInfo(&cameraInfo_), "GetCameraInfo");
+        configureGrabTimeout();
+    }
+    catch (...)
+    {
+        camera_.Disconnect();
+        connected_ = false;
+        throw;
+    }
+}
+
 cv::Mat FlyCaptureCamera::grabFrameBgr()
 {
     if (!capturing_)
@@ -183,7 +226,15 @@ cv::Mat FlyCaptureCamera::grabFrameBgr()
         throw std::logic_error("A captura da camera ainda nao foi iniciada.");
     }
 
-    throwIfError(camera_.RetrieveBuffer(&rawImage_), "RetrieveBuffer");
+    const FlyCapture2::Error retrieveError = camera_.RetrieveBuffer(&rawImage_);
+    if (retrieveError != FlyCapture2::PGRERROR_OK)
+    {
+        // Depois que o cabo e removido, StopCapture pode tentar operar sobre
+        // um dispositivo que ja desapareceu. A reconexao fara o descarte da
+        // sessao antiga antes de iniciar uma nova captura.
+        capturing_ = false;
+        throwIfError(retrieveError, "RetrieveBuffer");
+    }
     throwIfError(
         rawImage_.Convert(FlyCapture2::PIXEL_FORMAT_BGR, &bgrImage_),
         "Convert PIXEL_FORMAT_BGR"
@@ -204,6 +255,21 @@ cv::Mat FlyCaptureCamera::grabFrameBgr()
 const FlyCapture2::CameraInfo& FlyCaptureCamera::info() const noexcept
 {
     return cameraInfo_;
+}
+
+void FlyCaptureCamera::configureGrabTimeout()
+{
+    FlyCapture2::FC2Config configuration;
+    throwIfError(
+        camera_.GetConfiguration(&configuration),
+        "GetConfiguration"
+    );
+
+    configuration.grabTimeout = 1000U;
+    throwIfError(
+        camera_.SetConfiguration(&configuration),
+        "SetConfiguration"
+    );
 }
 
 void FlyCaptureCamera::throwIfError(
