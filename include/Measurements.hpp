@@ -6,8 +6,9 @@
  *
  * @details
  * Este arquivo concentra a representacao das medidas derivadas dos pontos
- * detectados na imagem do laser. Cálculos de conversão pixel -> mm foram
- * realizados com base em calibração experimental e regressão linear.
+ * detectados na imagem do laser. Calculos de conversao pixel -> mm foram
+ * realizados com base em calibracao experimental. Z usa regressao quadratica
+ * e a escala de Y varia conforme a distancia calculada.
  * 
  * @note
  * Eixo Y: Largura horizontal que a câmera enxerga, com origem no centro da imagem
@@ -42,20 +43,7 @@ public:
         double z;
     };
 
-    /**
-     * @brief Inicializa a conversao de pixels para milimetros.
-     *
-     * @param millimetersPerPixel Escala aplicada a cada coordenada em pixels.
-     * @param coordinateOffsetMillimeters Deslocamento somado apos a escala.
-     *
-     * @throws std::invalid_argument Se algum parametro de calibracao nao for
-     * finito.
-     *
-     */
-    explicit Measurements(
-        double millimetersPerPixel = -0.09719,
-        double coordinateOffsetMillimeters = 30.04304
-    );
+    Measurements() = default;
 
     /**
      * @brief Atualiza as medidas usando os pontos detectados na imagem.
@@ -121,12 +109,32 @@ public:
 
 private:
     /**
-     * @brief Converte uma coordenada de pixel para milimetros.
+     * @brief Calcula a distancia camera-objeto a partir do pixel vertical.
      *
-     * @param coordinate Coordenada original em pixels.
-     * @return Coordenada convertida em milimetros.
+     * @param verticalPixel Coordenada V original em pixels.
+     * @return Distancia camera-objeto em milimetros.
      */
-    double convertPixelCoordinate(double coordinate) const noexcept;
+    static double cameraObjectDistance(double verticalPixel) noexcept;
+
+    /**
+     * @brief Converte a coordenada horizontal usando a escala da profundidade.
+     *
+     * @param horizontalPixel Coordenada U original em pixels.
+     * @param distanceMillimeters Distancia camera-objeto em milimetros.
+     * @return Coordenada Y em milimetros, com origem no centro da imagem.
+     */
+    static double convertHorizontalPixelCoordinate(
+        double horizontalPixel,
+        double distanceMillimeters
+    ) noexcept;
+
+    /**
+     * @brief Converte a distancia em altura relativa ao plano de 211 mm.
+     *
+     * @param distanceMillimeters Distancia camera-objeto em milimetros.
+     * @return Coordenada Z em milimetros, positiva ao aproximar-se da camera.
+     */
+    static double heightFromDistance(double distanceMillimeters) noexcept;
 
     /**
      * @brief Calcula a area absoluta do poligono formado pelos pontos.
@@ -136,12 +144,6 @@ private:
      *
      */
     static double polygonArea(const std::vector<Point>& points) noexcept;
-
-    /// Escala linear usada na conversao de pixels para milimetros.
-    double millimetersPerPixel_;
-
-    /// Deslocamento linear usado na conversao de pixels para milimetros.
-    double coordinateOffsetMillimeters_;
 
     /// Coordenada Y central calculada para o perfil atual.
     double y_ = 0.0;

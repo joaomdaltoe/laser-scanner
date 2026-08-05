@@ -6,24 +6,24 @@
 #include "Measurements.hpp"
 
 #include <cmath>
-#include <stdexcept>
 
-Measurements::Measurements(
-    double millimetersPerPixel,
-    double coordinateOffsetMillimeters
-)
-    : millimetersPerPixel_(millimetersPerPixel),
-      coordinateOffsetMillimeters_(coordinateOffsetMillimeters)
+namespace
 {
-    if (!std::isfinite(millimetersPerPixel_))
-    {
-        throw std::invalid_argument("A escala de calibracao deve ser finita.");
-    }
+// D(V) = a*V^2 + b*V + c, obtido a partir da calibracao fornecida.
+constexpr double distanceQuadraticCoefficient = 0.000016334149;
+constexpr double distanceLinearCoefficient = 0.049144336;
+constexpr double distanceOffsetMillimeters = 162.325717;
 
-    if (!std::isfinite(coordinateOffsetMillimeters_))
-    {
-        throw std::invalid_argument("O deslocamento de calibracao deve ser finito.");
-    }
+// Z e a altura relativa ao plano cuja distancia camera-objeto e 211 mm.
+constexpr double referenceDistanceMillimeters = 211.0;
+
+// Largura(D) = m*D + b, em milimetros.
+constexpr double fieldWidthSlope = 0.1986353;
+constexpr double fieldWidthOffsetMillimeters = 21.380522;
+
+// A calibracao foi realizada no frame completo U=0..1287.
+constexpr double horizontalPixelSpan = 1287.0;
+constexpr double horizontalCenterPixel = horizontalPixelSpan * 0.5;
 }
 
 void Measurements::update(const std::vector<cv::Point2f>& imagePoints)
@@ -33,9 +33,16 @@ void Measurements::update(const std::vector<cv::Point2f>& imagePoints)
 
     for (const cv::Point2f& imagePoint : imagePoints)
     {
+        const double horizontalPixel = static_cast<double>(imagePoint.x);
+        const double verticalPixel = static_cast<double>(imagePoint.y);
+        const double distanceMillimeters = cameraObjectDistance(verticalPixel);
+
         points_.push_back({
-            convertPixelCoordinate(static_cast<double>(imagePoint.x)),
-            convertPixelCoordinate(static_cast<double>(imagePoint.y))
+            convertHorizontalPixelCoordinate(
+                horizontalPixel,
+                distanceMillimeters
+            ),
+            heightFromDistance(distanceMillimeters)
         });
     }
 
@@ -122,10 +129,30 @@ const std::vector<Measurements::Point>& Measurements::get_points() const noexcep
     return points_;
 }
 
-double Measurements::convertPixelCoordinate(double coordinate) const noexcept
+double Measurements::cameraObjectDistance(double verticalPixel) noexcept
 {
-    return coordinate * millimetersPerPixel_ +
-        coordinateOffsetMillimeters_;
+    return distanceQuadraticCoefficient * verticalPixel * verticalPixel +
+        distanceLinearCoefficient * verticalPixel +
+        distanceOffsetMillimeters;
+}
+
+double Measurements::convertHorizontalPixelCoordinate(
+    double horizontalPixel,
+    double distanceMillimeters
+) noexcept
+{
+    const double fieldWidthMillimeters =
+        fieldWidthSlope * distanceMillimeters +
+        fieldWidthOffsetMillimeters;
+    const double millimetersPerPixel =
+        fieldWidthMillimeters / horizontalPixelSpan;
+
+    return (horizontalCenterPixel - horizontalPixel) * millimetersPerPixel;
+}
+
+double Measurements::heightFromDistance(double distanceMillimeters) noexcept
+{
+    return referenceDistanceMillimeters - distanceMillimeters;
 }
 
 double Measurements::polygonArea(
