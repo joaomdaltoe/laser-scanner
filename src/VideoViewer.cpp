@@ -30,6 +30,7 @@
 #include <QPixmap>
 #include <QPushButton>
 #include <QSaveFile>
+#include <QScrollArea>
 #include <QSizePolicy>
 #include <QSlider>
 #include <QStatusBar>
@@ -407,6 +408,7 @@ private:
         yLabel_ = createValueLabel("Y: -");
         zLabel_ = createValueLabel("Z: -");
         gapLabel_ = createValueLabel("Gap: -");
+        hiloLabel_ = createValueLabel("Hilo: -");
         areaLabel_ = createValueLabel("Area: -");
         measurementsLayout->addWidget(detectedPointsLabel_);
         measurementsLayout->addWidget(inflectionPointsLabel_);
@@ -415,7 +417,31 @@ private:
         measurementsLayout->addWidget(yLabel_);
         measurementsLayout->addWidget(zLabel_);
         measurementsLayout->addWidget(gapLabel_);
+        measurementsLayout->addWidget(hiloLabel_);
         measurementsLayout->addWidget(areaLabel_);
+
+        measurementsLayout->addSpacing(8);
+        measurementsLayout->addWidget(new QLabel(
+            "Coordenadas dos pontos",
+            measurementsGroup
+        ));
+
+        pointsListWidget_ = new QWidget(measurementsGroup);
+        pointsListLayout_ = new QVBoxLayout(pointsListWidget_);
+        pointsListLayout_->setContentsMargins(0, 0, 0, 0);
+        pointsListLayout_->setSpacing(4);
+        noPointsLabel_ = createValueLabel("Nenhum ponto disponivel");
+        pointsListLayout_->addWidget(noPointsLabel_);
+
+        QScrollArea* pointsScrollArea = new QScrollArea(measurementsGroup);
+        pointsScrollArea->setWidgetResizable(true);
+        pointsScrollArea->setHorizontalScrollBarPolicy(
+            Qt::ScrollBarAlwaysOff
+        );
+        pointsScrollArea->setMinimumHeight(100);
+        pointsScrollArea->setMaximumHeight(190);
+        pointsScrollArea->setWidget(pointsListWidget_);
+        measurementsLayout->addWidget(pointsScrollArea);
 
         sideLayout->addWidget(controlsGroup);
         sideLayout->addWidget(measurementsGroup);
@@ -611,7 +637,7 @@ private:
             measurements_.get_points().size()
         );
         const int requiredPanelHeight =
-            margin * 2 + lineHeight * (9 + pointLines);
+            margin * 2 + lineHeight * (10 + pointLines);
         const int outputHeight = std::max(
             lastFrameImage_.height(),
             requiredPanelHeight
@@ -660,6 +686,7 @@ private:
         drawLine("Y: " + formatMillimeters(measurements_.get_y()));
         drawLine("Z: " + formatMillimeters(measurements_.get_z()));
         drawLine("Gap: " + formatMillimeters(measurements_.get_gap()));
+        drawLine("Hilo: " + formatMillimeters(measurements_.get_hilo()));
         drawLine("Area: " + formatSquareMillimeters(measurements_.get_area()));
 
         const std::vector<Measurements::Point>& points =
@@ -905,11 +932,40 @@ private:
 
     void updateMeasurementLabels()
     {
+        const std::vector<Measurements::Point>& points =
+            measurements_.get_points();
+
+        while (pointCoordinateLabels_.size() < points.size())
+        {
+            QLabel* pointLabel = createValueLabel("");
+            pointLabel->setParent(pointsListWidget_);
+            pointsListLayout_->addWidget(pointLabel);
+            pointCoordinateLabels_.push_back(pointLabel);
+        }
+
+        for (std::size_t index = 0; index < pointCoordinateLabels_.size(); ++index)
+        {
+            QLabel* pointLabel = pointCoordinateLabels_[index];
+            const bool pointExists = index < points.size();
+            pointLabel->setVisible(pointExists);
+
+            if (pointExists)
+            {
+                pointLabel->setText(QString("Ponto %1: Y %2 | Z %3")
+                    .arg(static_cast<qulonglong>(index + 1))
+                    .arg(formatMillimeters(points[index].y))
+                    .arg(formatMillimeters(points[index].z)));
+            }
+        }
+
+        noPointsLabel_->setVisible(points.empty());
+
         if (measurements_.empty())
         {
             yLabel_->setText("Y: -");
             zLabel_->setText("Z: -");
             gapLabel_->setText("Gap: -");
+            hiloLabel_->setText("Hilo: -");
             areaLabel_->setText("Area: -");
             return;
         }
@@ -917,6 +973,9 @@ private:
         yLabel_->setText("Y: " + formatMillimeters(measurements_.get_y()));
         zLabel_->setText("Z: " + formatMillimeters(measurements_.get_z()));
         gapLabel_->setText("Gap: " + formatMillimeters(measurements_.get_gap()));
+        hiloLabel_->setText(
+            "Hilo: " + formatMillimeters(measurements_.get_hilo())
+        );
         areaLabel_->setText(
             "Area: " + formatSquareMillimeters(measurements_.get_area())
         );
@@ -957,7 +1016,12 @@ private:
     QLabel* yLabel_ = nullptr;
     QLabel* zLabel_ = nullptr;
     QLabel* gapLabel_ = nullptr;
+    QLabel* hiloLabel_ = nullptr;
     QLabel* areaLabel_ = nullptr;
+    QWidget* pointsListWidget_ = nullptr;
+    QVBoxLayout* pointsListLayout_ = nullptr;
+    QLabel* noPointsLabel_ = nullptr;
+    std::vector<QLabel*> pointCoordinateLabels_;
     QLabel* connectedLabel_ = nullptr;
     QLabel* fpsLabel_ = nullptr;
     QLabel* laserLabel_ = nullptr;

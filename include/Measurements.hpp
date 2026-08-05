@@ -23,7 +23,8 @@
  *
  * @details
  * A classe converte coordenadas em pixels para milimetros, armazena os pontos
- * convertidos e calcula valores agregados como posicao central, gap e area.
+ * convertidos e calcula valores agregados como posicao central, gap, hilo e
+ * area.
  */
 class Measurements final
 {
@@ -98,6 +99,13 @@ public:
     double get_gap() const noexcept;
 
     /**
+     * @brief Retorna o desalinhamento vertical entre os pontos de referencia.
+     *
+     * @return Hilo em milimetros, ou 0.0 quando nao ha pontos suficientes.
+     */
+    double get_hilo() const noexcept;
+
+    /**
      * @brief Retorna a area do perfil convertido.
      *
      * @return Area em milimetros quadrados.
@@ -143,6 +151,9 @@ private:
 
     /// Abertura calculada entre pontos vizinhos ao centro do perfil.
     double gap_ = 0.0;
+
+    /// Desalinhamento vertical calculado entre os pontos de referencia.
+    double hilo_ = 0.0;
 
     /// Area calculada para o perfil atual.
     double area_ = 0.0;

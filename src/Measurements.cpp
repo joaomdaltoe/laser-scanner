@@ -42,6 +42,7 @@ void Measurements::update(const std::vector<cv::Point2f>& imagePoints)
     y_ = 0.0;
     z_ = 0.0;
     gap_ = 0.0;
+    hilo_ = 0.0;
     area_ = polygonArea(points_);
 
     if (points_.empty())
@@ -58,6 +59,13 @@ void Measurements::update(const std::vector<cv::Point2f>& imagePoints)
         y_ = (points_[leftIndex].y + points_[rightIndex].y) * 0.5;
         z_ = (points_[leftIndex].z + points_[rightIndex].z) * 0.5;
         gap_ = std::abs(points_[leftIndex].y - points_[rightIndex].y);
+
+        // Regra da aplicacao C#: para quantidades pares, Hilo usa sempre
+        // o quarto e o terceiro pontos, independentemente do par central.
+        if (pointCount >= 4)
+        {
+            hilo_ = std::abs(points_[3].z - points_[2].z);
+        }
     }
     else
     {
@@ -70,6 +78,10 @@ void Measurements::update(const std::vector<cv::Point2f>& imagePoints)
             gap_ = std::abs(
                 points_[middleIndex - 1].y -
                 points_[middleIndex + 1].y
+            );
+            hilo_ = std::abs(
+                points_[middleIndex - 1].z -
+                points_[middleIndex + 1].z
             );
         }
     }
@@ -93,6 +105,11 @@ double Measurements::get_z() const noexcept
 double Measurements::get_gap() const noexcept
 {
     return gap_;
+}
+
+double Measurements::get_hilo() const noexcept
+{
+    return hilo_;
 }
 
 double Measurements::get_area() const noexcept
