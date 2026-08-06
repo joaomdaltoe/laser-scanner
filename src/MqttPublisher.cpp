@@ -20,9 +20,9 @@
 
 namespace
 {
-constexpr const char* defaultHost = "192.168.1.20";
+constexpr const char* defaultHost = "192.168.0.5";
 constexpr int defaultPort = 1883;
-constexpr const char* defaultTopic = "laser-scanner/points";
+constexpr const char* defaultTopicPrefix = "laser-lab";
 constexpr const char* defaultClientId = "laser-scanner";
 constexpr int defaultKeepAliveSeconds = 60;
 constexpr int defaultPublishIntervalMilliseconds = 1000;
@@ -76,27 +76,16 @@ int environmentIntegerOrDefault(
 }
 
 std::string serializePoints(
-    const std::vector<Measurements::Point>& points
+    const Measurements::Point& point
 )
 {
     std::ostringstream payload;
     payload.imbue(std::locale::classic());
-    payload << std::setprecision(10) << "{\"points\":[";
-
-    for (std::size_t index = 0; index < points.size(); ++index)
-    {
-        if (index > 0)
-        {
-            payload << ',';
-        }
-
-        payload
-            << "{\"y\":" << points[index].y
-            << ",\"z\":" << points[index].z
+    payload << std::setprecision(2)
+            << "{\"y\":" << point.y
+            << ",\"z\":" << point.z
             << '}';
-    }
 
-    payload << "]}";
     return payload.str();
 }
 }
@@ -111,7 +100,7 @@ MqttConfig MqttConfig::fromEnvironment()
         1,
         65535
     );
-    config.topic = environmentValueOrDefault("MQTT_TOPIC", defaultTopic);
+    config.topicPrefix = environmentValueOrDefault("MQTT_TOPIC_PREFIX", defaultTopicPrefix);
     config.clientId = environmentValueOrDefault(
         "MQTT_CLIENT_ID",
         defaultClientId
@@ -192,7 +181,7 @@ public:
 
         std::cout
             << "MQTT configurado: " << config_.host << ':' << config_.port
-            << " | topico: " << config_.topic
+            << " | prefixo dos topicos: " << config_.topicPrefix
             << " | intervalo: " << config_.publishIntervalMilliseconds
             << " ms | QoS: 0 | retain: false"
             << std::endl;
@@ -229,26 +218,34 @@ public:
 
         try
         {
-            const std::string payload = serializePoints(points);
-            const int publishResult = mosquitto_publish(
-                client_,
-                nullptr,
-                config_.topic.c_str(),
-                static_cast<int>(payload.size()),
-                payload.data(),
-                mqttQualityOfService,
-                mqttRetain
-            );
+            bool allPublished = true;
+            for (std::size_t index = 0; index < points.size(); index++) {
+                
+                const std::string topic =
+                    config_.topicPrefix + "/p" + std::to_string(++index);
+                
+                const std::string payload = serializePoints(points[index]);
+                const int publishResult = mosquitto_publish(
+                    client_,
+                    nullptr,
+                    topic.c_str(),
+                    static_cast<int>(payload.size()),
+                    payload.data(),
+                    mqttQualityOfService,
+                    mqttRetain
+                );
 
-            if (publishResult == MOSQ_ERR_SUCCESS)
-            {
-                return true;
-            }
+                if (publishResult != MOSQ_ERR_SUCCESS)
+                {
+                    allPubilshed = false;    
 
-            if (publishResult != MOSQ_ERR_NO_CONN)
-            {
-                logError("publicar os pontos", publishResult);
+                    if (publishResult != MOSQ_ERR_NO_CONN)
+                    {
+                        logError("publica os ponto", publishResult);
+                    }
+                }
             }
+            return allPublished;
         }
         catch (const std::exception& exception)
         {

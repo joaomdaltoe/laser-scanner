@@ -18,7 +18,7 @@ struct MqttConfig final
 {
     std::string host;
     int port = 1883;
-    std::string topic;
+    std::string topicPrefix;
     std::string clientId;
     int keepAliveSeconds = 60;
 

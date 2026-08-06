@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     
-    image: labsolda:labsolda-laser-scanner-test
+    image: labsolda:labsolda-laser-scanner
     container_name: laser-scanner
     # Usa a identidade da sessao grafica do host. Isso tambem permite que o Qt
     # autentique no barramento AT-SPI anunciado pelo servidor X11.
@@ -31,15 +31,15 @@ services:
       DBUS_FATAL_WARNINGS: "0"
 
       # Configuracao MQTT. Altere estes valores sem recompilar a aplicacao.
-      MQTT_HOST: "192.168.1.20"
+      MQTT_HOST: "192.168.0.5"
       MQTT_PORT: "1883"
-      MQTT_TOPIC: "laser-scanner/points"
+      MQTT_TOPIC_PREFIX: "laser-lab"
       MQTT_CLIENT_ID: "laser-scanner"
       MQTT_KEEPALIVE_SECONDS: "60"
 
       # RATE DO TOPICO: 1000 ms = uma publicacao por segundo.
       # Para mudar a frequencia futuramente, altere somente este valor.
-      MQTT_PUBLISH_INTERVAL_MS: "1000"
+      MQTT_PUBLISH_INTERVAL_MS: "100"
 
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
