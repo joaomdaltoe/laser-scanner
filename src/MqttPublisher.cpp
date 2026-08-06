@@ -81,7 +81,7 @@ std::string serializePoints(
 {
     std::ostringstream payload;
     payload.imbue(std::locale::classic());
-    payload << std::setprecision(2)
+    payload << std::fixed << std::setprecision(2)
             << "{\"y\":" << point.y
             << ",\"z\":" << point.z
             << '}';
@@ -209,7 +209,7 @@ public:
     ) noexcept
     {
         if (
-            points.size() != requiredPointCount || client_ == nullptr ||
+            points.size() < requiredPointCount || client_ == nullptr ||
             !loopStarted_ || !connected_.load()
         )
         {
@@ -219,10 +219,10 @@ public:
         try
         {
             bool allPublished = true;
-            for (std::size_t index = 0; index < points.size(); index++) {
+            for (std::size_t index = 0; index < points.size(); ++index) {
                 
                 const std::string topic =
-                    config_.topicPrefix + "/p" + std::to_string(++index);
+                    config_.topicPrefix + "/p" + std::to_string(index+1);
                 
                 const std::string payload = serializePoints(points[index]);
                 const int publishResult = mosquitto_publish(

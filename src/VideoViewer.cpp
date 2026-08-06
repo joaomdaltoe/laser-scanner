@@ -325,7 +325,7 @@ private:
 
         // Por requisito, frames com menos (ou mais) de cinco pontos nao geram
         // mensagem. Nao se repete a ultima medicao valida.
-        if (points.size() != 5)
+        if (points.size() < 5)
         {
             return;
         }
