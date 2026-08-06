@@ -120,6 +120,25 @@ ainda exigir autorização explícita, libere somente o usuário atual:
 xhost +SI:localuser:"$(id -un)"
 ```
 
+## Publicacao MQTT
+
+A aplicacao publica as coordenadas fisicas `Y` e `Z`, em milimetros, dos cinco
+pontos de inflexao no topico `laser-scanner/points`. O payload usa JSON, QoS 0 e
+`retain=false`:
+
+```json
+{"points":[{"y":-12.34,"z":5.67},{"y":-6.21,"z":4.89},{"y":0.1,"z":4.52},{"y":6.3,"z":4.91},{"y":12.48,"z":5.72}]}
+```
+
+Se a medicao atual nao possuir exatamente cinco pontos, nada e publicado. Uma
+falha do broker nao interrompe a camera; a `libmosquitto` tenta restabelecer a
+conexao em uma thread de segundo plano.
+
+Host, porta, topico e demais opcoes ficam no bloco `environment` do
+`docker-compose.yml`. O rate e definido por `MQTT_PUBLISH_INTERVAL_MS`: o valor
+`1000` representa uma publicacao por segundo. Essa temporizacao e independente
+dos aproximadamente 30 FPS usados na captura da camera.
+
 ## Executar
 
 ```bash

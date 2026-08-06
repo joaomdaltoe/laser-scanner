@@ -8,6 +8,7 @@
 #include "FlyCaptureCamera.hpp"
 #include "ImagePathTrack.hpp"
 #include "Measurements.hpp"
+#include "MqttPublisher.hpp"
 
 #include <opencv2/imgproc.hpp>
 
@@ -259,6 +260,8 @@ public:
         : QMainWindow(parent),
           camera_(camera),
           targetFramesPerSecond_(targetFramesPerSecond),
+          mqttConfig_(MqttConfig::fromEnvironment()),
+          mqttPublisher_(mqttConfig_),
           framePeriodMilliseconds_(
               std::max(1, static_cast<int>(std::lround(
                   1000.0 / targetFramesPerSecond
@@ -280,11 +283,22 @@ public:
             processFrame();
         });
         frameTimer_.start(framePeriodMilliseconds_);
+
+        // Este timer controla exclusivamente o rate do topico MQTT. O valor
+        // pode ser alterado em MQTT_PUBLISH_INTERVAL_MS no docker-compose.yml,
+        // sem recompilação necessária.
+        connect(&mqttPublishTimer_, &QTimer::timeout, this, [this]() {
+            publishMeasurements();
+        });
+        mqttPublishTimer_.setTimerType(Qt::PreciseTimer);
+        mqttPublishTimer_.start(mqttConfig_.publishIntervalMilliseconds);
+
         fpsClock_ = Clock::now();
     }
 
     ~CameraMainWindow() override
     {
+        mqttPublishTimer_.stop();
         frameTimer_.stop();
         camera_.stop();
     }
@@ -303,6 +317,21 @@ protected:
 
 private:
     using Clock = std::chrono::steady_clock;
+
+    void publishMeasurements()
+    {
+        const std::vector<Measurements::Point>& points =
+            measurements_.get_points();
+
+        // Por requisito, frames com menos (ou mais) de cinco pontos nao geram
+        // mensagem. Nao se repete a ultima medicao valida.
+        if (points.size() != 5)
+        {
+            return;
+        }
+
+        mqttPublisher_.publishPoints(points);
+    }
 
     void configureExposureControl()
     {
@@ -391,9 +420,6 @@ private:
         controlsLayout->addWidget(new QLabel("Threshold", controlsGroup));
         controlsLayout->addWidget(thresholdSlider_);
         controlsLayout->addWidget(thresholdValueLabel_);
-        controlsLayout->addSpacing(8);
-        controlsLayout->addWidget(new QLabel("nPontos", controlsGroup));
-        controlsLayout->addWidget(pointsValueLabel_);
 
         QGroupBox* measurementsGroup = new QGroupBox("Medicoes", sidePanel);
         QVBoxLayout* measurementsLayout = new QVBoxLayout(measurementsGroup);
@@ -997,6 +1023,9 @@ private:
     ImagePathTracker imagePathTracker_;
     Measurements measurements_;
     QTimer frameTimer_;
+    MqttConfig mqttConfig_;
+    MqttPublisher mqttPublisher_;
+    QTimer mqttPublishTimer_;
     FrameWidget* frameWidget_ = nullptr;
     QSlider* exposureSlider_ = nullptr;
     QSlider* thresholdSlider_ = nullptr;

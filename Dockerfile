@@ -14,7 +14,7 @@ RUN apt-get update \
     libopencv-dev \
     mosquitto \
     mosquitto-clients \
-    libmosquittopp-dev \
+    libmosquitto-dev \
     tzdata \
     qtbase5-dev \
     /tmp/flycapture2/libflycapture-2*.deb \

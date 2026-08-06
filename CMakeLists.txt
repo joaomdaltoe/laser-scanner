@@ -10,6 +10,17 @@ find_package(OpenCV REQUIRED)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 
+find_library(MOSQUITTO_LIBRARY NAMES mosquitto)
+find_path(MOSQUITTO_INCLUDE_DIR NAMES mosquitto.h)
+
+if(NOT MOSQUITTO_INCLUDE_DIR)
+	message(FATAL_ERROR "mosquitto.h nao encontrado")
+endif()
+
+if(NOT MOSQUITTO_LIBRARY)
+	message(FATAL_ERROR "libmosquitto nao encontrada")
+endif()
+
 find_library(
 	FLY_CAPTURE_LIBRARY
 	NAMES flycapture
@@ -39,22 +50,26 @@ add_executable(laser_scanner
 	src/FlyCaptureCamera.cpp
 	src/ImagePathTrack.cpp
 	src/Measurements.cpp
+	src/MqttPublisher.cpp
 	src/VideoViewer.cpp
 )
 
 target_include_directories(laser_scanner PRIVATE
 	"${FLY_CAPTURE_INCLUDE_DIR}"
+	"${MOSQUITTO_INCLUDE_DIR}"
 	"${CMAKE_CURRENT_SOURCE_DIR}/include"
 	${OpenCV_INCLUDE_DIRS}
 )
 
 target_link_libraries(laser_scanner PRIVATE
 	"${FLY_CAPTURE_LIBRARY}"
+	"${MOSQUITTO_LIBRARY}"
 	${OpenCV_LIBS}
 	Qt${QT_VERSION_MAJOR}::Widgets
 )
 
 message(STATUS "FlyCapture include: ${FLY_CAPTURE_INCLUDE_DIR}")
 message(STATUS "FlyCapture library: ${FLY_CAPTURE_LIBRARY}")
+message(STATUS "Mosquitto library: ${MOSQUITTO_LIBRARY}")
 message(STATUS "OpenCV version: ${OpenCV_VERSION}")
 message(STATUS "Qt major version: ${QT_VERSION_MAJOR}")
