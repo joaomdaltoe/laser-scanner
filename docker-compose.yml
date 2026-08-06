@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     
-    image: labsolda:labsolda-laser-scanner
+    image: labsolda:labsolda-laser-dev
     container_name: laser-scanner
     # Usa a identidade da sessao grafica do host. Isso tambem permite que o Qt
     # autentique no barramento AT-SPI anunciado pelo servidor X11.
