@@ -31,7 +31,7 @@ services:
       DBUS_FATAL_WARNINGS: "0"
 
       # Configuracao MQTT. Altere estes valores sem recompilar a aplicacao.
-      MQTT_HOST: "192.168.0.5"
+      MQTT_HOST: "192.168.0.67"
       MQTT_PORT: "1883"
       MQTT_TOPIC_PREFIX: "laser-lab"
       MQTT_CLIENT_ID: "laser-scanner"

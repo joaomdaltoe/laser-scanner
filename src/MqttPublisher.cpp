@@ -237,7 +237,7 @@ public:
 
                 if (publishResult != MOSQ_ERR_SUCCESS)
                 {
-                    allPubilshed = false;    
+                    allPublished = false;    
 
                     if (publishResult != MOSQ_ERR_NO_CONN)
                     {
