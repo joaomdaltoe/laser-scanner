@@ -12,6 +12,8 @@ a criação da imagem Docker, mas não deve ser executado manualmente.
 
 ## Preparar os pacotes FlyCapture2
 
+Se for usar imagem do Docker Hub, pule essa seção
+
 O Docker só acessa arquivos dentro da pasta usada como contexto de build. Copie
 os pacotes do SDK para o projeto:
 
@@ -120,38 +122,10 @@ ainda exigir autorização explícita, libere somente o usuário atual:
 xhost +SI:localuser:"$(id -un)"
 ```
 
-## Publicacao MQTT
-
-A aplicacao publica as coordenadas fisicas `Y` e `Z`, em milimetros, dos cinco
-pontos de inflexao no topico `laser-scanner/points`. O payload usa JSON, QoS 0 e
-`retain=false`:
-
-```json
-{"points":[{"y":-12.34,"z":5.67},{"y":-6.21,"z":4.89},{"y":0.1,"z":4.52},{"y":6.3,"z":4.91},{"y":12.48,"z":5.72}]}
-```
-
-Se a medicao atual nao possuir exatamente cinco pontos, nada e publicado. Uma
-falha do broker nao interrompe a camera; a `libmosquitto` tenta restabelecer a
-conexao em uma thread de segundo plano.
-
-Host, porta, topico e demais opcoes ficam no bloco `environment` do
-`docker-compose.yml`. O rate e definido por `MQTT_PUBLISH_INTERVAL_MS`: o valor
-`1000` representa uma publicacao por segundo. Essa temporizacao e independente
-dos aproximadamente 30 FPS usados na captura da camera.
-
 ## Executar
 
 ```bash
 docker-compose up
 ```
 
-!!! warning "Atenção"
-    No Ubuntu 18.04, a combinação Qt 5.9/libdbus 1.12 pode imprimir o aviso
-    `last reference on a private connection was dropped without closing the
-    connection` ao inicializar a acessibilidade AT-SPI. A aplicação configura esse
-    aviso como não fatal antes de criar o `QApplication`; portanto, ele pode
-    continuar no terminal, mas não deve mais produzir `SIGABRT` nem encerrar o
-    container com código 134/139.
-
 Feche a janela Qt, ou pressione `Q` ou `Esc`, para encerrar o vídeo.
-
