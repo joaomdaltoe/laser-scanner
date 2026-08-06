@@ -383,10 +383,6 @@ private:
         });
 
         pointsValueLabel_ = createValueLabel("");
-        pointsSlider_ = createHorizontalSlider(0, 10, 3);
-        connect(pointsSlider_, &QSlider::valueChanged, this, [this](int) {
-            updateControlLabels();
-        });
 
         controlsLayout->addWidget(new QLabel("Exposicao", controlsGroup));
         controlsLayout->addWidget(exposureSlider_);
@@ -397,7 +393,6 @@ private:
         controlsLayout->addWidget(thresholdValueLabel_);
         controlsLayout->addSpacing(8);
         controlsLayout->addWidget(new QLabel("nPontos", controlsGroup));
-        controlsLayout->addWidget(pointsSlider_);
         controlsLayout->addWidget(pointsValueLabel_);
 
         QGroupBox* measurementsGroup = new QGroupBox("Medicoes", sidePanel);
@@ -488,7 +483,7 @@ private:
                 drawInflectionPoints(
                     frame,
                     laserPoints,
-                    pointsSlider_->value(),
+                    5,
                     imagePathTracker_
                 );
             measurements_.update(measurementImagePoints);
@@ -927,7 +922,6 @@ private:
         thresholdValueLabel_->setText(QString::number(
             thresholdSlider_->value()
         ));
-        pointsValueLabel_->setText(QString::number(pointsSlider_->value()));
     }
 
     void updateMeasurementLabels()
@@ -1006,7 +1000,6 @@ private:
     FrameWidget* frameWidget_ = nullptr;
     QSlider* exposureSlider_ = nullptr;
     QSlider* thresholdSlider_ = nullptr;
-    QSlider* pointsSlider_ = nullptr;
     QLabel* exposureValueLabel_ = nullptr;
     QLabel* thresholdValueLabel_ = nullptr;
     QLabel* pointsValueLabel_ = nullptr;
