@@ -12,6 +12,9 @@ RUN apt-get update \
     cmake \
     pkg-config \
     libopencv-dev \
+    mosquitto \
+    mosquitto-clients \
+    libmosquittopp-dev \
     tzdata \
     qtbase5-dev \
     /tmp/flycapture2/libflycapture-2*.deb \
