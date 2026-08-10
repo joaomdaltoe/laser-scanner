@@ -1,131 +1,132 @@
 # Laser Scanner Linux
 
-Aplicação C++/Qt para uma câmera compatível com FlyCapture2. O programa captura
-quadros continuamente, converte cada imagem para BGR (`cv::Mat`), preserva o
-processamento e os desenhos em OpenCV e exibe o vídeo em uma janela Qt limitada
-a aproximadamente 30 FPS.
+## Resumo
 
-A compilação e a execução são feitas exclusivamente com Docker. Não é necessário
-instalar o FlyCapture2, o OpenCV, o Qt ou ferramentas de compilação diretamente
-no host. O CMake permanece no repositório porque é utilizado internamente durante
-a criação da imagem Docker, mas não deve ser executado manualmente.
+O Laser Scanner captura imagens de uma câmera GigE compatível com FlyCapture2,
+processa o perfil do laser e exibe o resultado em uma janela Qt. As coordenadas
+dos pontos de inflexão são publicadas via MQTT nos tópicos
+`laser-lab/p1` até `laser-lab/p10`, dependendo de quantos pontos estão sendo exibidos.
 
-## Preparar os pacotes FlyCapture2
+A aplicação é executada com Docker Compose. Antes de iniciá-la, é necessário:
 
-Se for usar imagem do Docker Hub, pule essa seção
-
-O Docker só acessa arquivos dentro da pasta usada como contexto de build. Copie
-os pacotes do SDK para o projeto:
-
-```bash
-cd ~/Documents/laser-scanner
-mkdir -p third_party/flycapture2
-cp ~/Documents/flycapture2-2.13.3.31-amd64/*.deb third_party/flycapture2/
-```
-
-Confira se os dois pacotes necessários estão presentes:
-
-```bash
-ls -lh third_party/flycapture2/libflycapture-2*.deb
-ls -lh third_party/flycapture2/libflycapture-dev*.deb
-```
+1. conectar e configurar a câmera GigE;
+2. iniciar o broker Mosquitto no computador;
+3. autorizar a janela Qt na sessão gráfica;
+4. obter ou construir a imagem Docker.
 
 ## Pré-requisitos
 
-- Computador x86-64 conectado à câmera GigE.
-- Docker Engine.
-- Servidor gráfico X11 ou XWayland para a janela Qt.
+- Computador x86-64 com Linux e sessão gráfica X11 ou XWayland.
+- Câmera GigE compatível com FlyCapture2 conectada ao computador.
+- Docker Engine com Docker Compose.
+- Acesso de administrador (`sudo`) para configurar a rede e instalar o
+  Mosquitto.
 
-Verifique as ferramentas:
+Confirme a arquitetura, o Docker e a sessão gráfica:
 
 ```bash
-docker --version
-docker-compose --version
 uname -m
+docker --version
+docker compose version
 echo "$DISPLAY"
 ```
 
-O resultado de `uname -m` deve ser `x86_64`, pois o SDK utilizado é AMD64.
+O resultado de `uname -m` deve ser `x86_64`, e a variável `DISPLAY` não deve
+estar vazia.
 
-## Configurar a rede GigE no host
+## Configurar a rede da câmera
 
-O container utiliza a rede do host. Portanto, MTU e buffers de recepção devem
-ser configurados no host, não no Dockerfile.
+O contêiner utiliza diretamente a rede do computador. Execute os comandos
+abaixo no host antes de iniciar a aplicação.
 
-Configure temporariamente buffers de recepção de 10 MiB:
+Aumente temporariamente os buffers de recepção para 10 MiB:
 
 ```bash
 sudo sysctl -w net.core.rmem_max=10485760
 sudo sysctl -w net.core.rmem_default=10485760
 ```
 
-Descubra a interface que alcança a câmera:
+Identifique a interface conectada à câmera:
 
 ```bash
 ip -br addr
 ```
 
-Configure o MTU da interface encontrada, substituindo `enp30s0` quando necessário:
+Configure o MTU, substituindo `enp30s0` pelo nome encontrado no comando
+anterior:
 
 ```bash
 sudo ip link set dev enp30s0 mtu 9000
-ip link show dev enp30s0
 ```
 
-A câmera, a placa de rede e qualquer switch intermediário precisam suportar o
-mesmo tamanho de pacote.
+## Instalar e iniciar o Mosquitto
 
-## Criar e compilar a imagem
-
-Na primeira compilação, ou depois de alterar os pacotes FlyCapture2, execute:
+O Mosquitto deve ser instalado no computador host. A instalação existente
+dentro da imagem Docker não cria um serviço no host.
 
 ```bash
-docker-compose build --no-cache
+sudo apt update
+sudo apt install mosquitto mosquitto-clients
+sudo systemctl enable --now mosquitto
 ```
 
-Para recompilações normais após alterações no código:
+Confirme que o serviço está ativo e ouvindo na porta `1883`:
 
 ```bash
-docker-compose build
+systemctl is-active mosquitto
+ss -ltnp | grep 1883
 ```
 
-Confira a imagem criada:
+O arquivo `docker-compose.yml` está configurado para acessar o broker do host
+em `127.0.0.1:1883`. Para acompanhar as mensagens publicadas pela aplicação,
+abra outro terminal e execute:
 
 ```bash
-docker image ls | grep laser-scanner
+mosquitto_sub -h 127.0.0.1 -p 1883 -t 'laser-lab/#' -v
 ```
 
 ## Permitir a janela Qt
 
-Informe ao Compose o UID e o GID do usuário da sessão gráfica:
+Execute os comandos abaixo no mesmo terminal que será usado para iniciar a
+aplicação:
 
 ```bash
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
-```
-
-O Compose monta automaticamente a variável `HOME` da sessão atual. Execute os
-comandos como o usuário da sessão gráfica, sem `sudo`, para que ela corresponda
-à pasta pessoal e ao `HOST_UID` informados.
-
-Confira antes de executar:
-
-```bash
 test -n "$HOME" && test -d "$HOME" && test -w "$HOME"
-```
-
-O container executa a aplicação com essa identidade, evitando acesso como
-`root` ao X11 e ao barramento de acessibilidade AT-SPI da sessão. Se o X11
-ainda exigir autorização explícita, libere somente o usuário atual:
-
-```bash
 xhost +SI:localuser:"$(id -un)"
 ```
 
-## Executar
+Não execute o Docker Compose com `sudo`. A aplicação precisa usar o usuário da
+sessão gráfica para abrir a janela Qt e salvar arquivos na pasta pessoal.
+
+## Obter a imagem Docker
+
+Para usar a imagem pronta:
 
 ```bash
-docker-compose up
+docker compose pull
 ```
 
-Feche a janela Qt, ou pressione `Q` ou `Esc`, para encerrar o vídeo.
+## Executar o sistema
+
+Com a câmera conectada, o Mosquitto ativo e a janela Qt autorizada, execute:
+
+```bash
+docker compose up
+```
+
+A inicialização correta mostra a câmera detectada e uma mensagem semelhante a:
+
+```text
+MQTT conectado a 127.0.0.1:1883
+```
+
+Feche a janela Qt ou pressione `Q` ou `Esc` para encerrar.
+
+Se aparecer `Connection refused`, confirme novamente o serviço e a porta:
+
+```bash
+sudo systemctl status mosquitto
+ss -ltnp | grep 1883
+```
