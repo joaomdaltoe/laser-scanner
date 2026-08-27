@@ -50,3 +50,20 @@ services:
     stdin_open: true
     tty: true
     restart: "no"
+    depends_on:
+      - mqtt-broker
+
+  mqtt-broker:
+    image: eclipse-mosquitto:2.1.2-alpine
+    container_name: mqtt-broker
+    restart: always
+
+    ports:
+      - "127.0.0.1:1883:1883" # ip_host:porta_host:porta_container
+
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt-data:/mosquitto/data
+
+volumes:
+  mqtt-data:
