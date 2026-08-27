@@ -17,7 +17,6 @@
 #include <locale>
 #include <sstream>
 #include <utility>
-
 namespace
 {
 constexpr const char* defaultHost = "192.168.0.5";
