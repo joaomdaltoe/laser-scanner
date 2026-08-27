@@ -1,28 +1,30 @@
-# Laser Scanner Linux
+# Laser Scanner — inicialização rápida
 
-## Resumo
+Este projeto captura imagens de uma câmera GigE compatível com FlyCapture2,
+exibe o processamento em uma janela Qt e publica os resultados por MQTT. A
+aplicação e o broker Mosquitto são executados com Docker Compose.
 
-O Laser Scanner captura imagens de uma câmera GigE compatível com FlyCapture2,
-processa o perfil do laser e exibe o resultado em uma janela Qt. As coordenadas
-dos pontos de inflexão são publicadas via MQTT nos tópicos
-`laser-lab/p1` até `laser-lab/p10`, dependendo de quantos pontos estão sendo exibidos.
+> Os comandos abaixo devem ser executados no **Linux**, a partir da pasta do
+> projeto.
 
-A aplicação é executada com Docker Compose. Antes de iniciá-la, é necessário:
+## 1. Requisitos do sistema
 
-1. conectar e configurar a câmera GigE;
-2. iniciar o broker Mosquitto no computador;
-3. autorizar a janela Qt na sessão gráfica;
-4. obter ou construir a imagem Docker.
+- computador Linux `x86_64` com ambiente gráfico X11 ou XWayland;
+- câmera GigE compatível com FlyCapture2 conectada à rede do computador;
+- Docker Engine;
+- Docker Compose V2 (comando `docker compose`);
+- comando `xhost` (pacote `x11-xserver-utils` no Ubuntu);
+- usuário autorizado a executar Docker sem `sudo`.
 
-## Pré-requisitos
+No Ubuntu, instale o utilitário do X11 caso ele ainda não exista:
 
-- Computador x86-64 com Linux e sessão gráfica X11 ou XWayland.
-- Câmera GigE compatível com FlyCapture2 conectada ao computador.
-- Docker Engine com Docker Compose.
-- Acesso de administrador (`sudo`) para configurar a rede e instalar o
-  Mosquitto.
+```bash
+sudo apt update
+sudo apt install x11-xserver-utils
+```
 
-Confirme a arquitetura, o Docker e a sessão gráfica:
+Instale o Docker seguindo a [documentação oficial do Docker
+Engine](https://docs.docker.com/engine/install/) e confirme os requisitos:
 
 ```bash
 uname -m
@@ -31,102 +33,87 @@ docker compose version
 echo "$DISPLAY"
 ```
 
-O resultado de `uname -m` deve ser `x86_64`, e a variável `DISPLAY` não deve
-estar vazia.
+O primeiro comando deve mostrar `x86_64` e o último não pode retornar vazio.
 
-## Configurar a rede da câmera
+## 2. Conferir o IP usado pelo MQTT
 
-O contêiner utiliza diretamente a rede do computador. Execute os comandos
-abaixo no host antes de iniciar a aplicação.
+O arquivo `docker-compose.yml` está configurado para usar o IP
+`150.162.23.134`. Confirme se esse IP pertence ao computador:
 
-Aumente temporariamente os buffers de recepção para 10 MiB:
+```bash
+ip -br addr
+```
+
+Se o computador usar outro IP, altere **as duas ocorrências** de
+`150.162.23.134` no `docker-compose.yml`:
+
+- `MQTT_HOST`, no serviço `laser-scanner`;
+- `ports`, no serviço `mqtt-broker`.
+
+## 3. Configurar a rede da câmera
+
+Aumente o buffer de recepção do Linux para 10 MiB:
 
 ```bash
 sudo sysctl -w net.core.rmem_max=10485760
 sudo sysctl -w net.core.rmem_default=10485760
 ```
 
-Identifique a interface conectada à câmera:
+Descubra a interface de rede ligada à câmera:
 
 ```bash
 ip -br addr
 ```
 
-Configure o MTU, substituindo `enp30s0` pelo nome encontrado no comando
-anterior:
+Ative jumbo frames nessa interface. Troque `enp30s0` pelo nome encontrado no
+comando anterior:
 
 ```bash
 sudo ip link set dev enp30s0 mtu 9000
 ```
 
-## Instalar e iniciar o Mosquitto
+Esses ajustes de buffer e MTU são temporários e precisam ser repetidos após
+reiniciar o computador.
 
-O Mosquitto deve ser instalado no computador host. A instalação existente
-dentro da imagem Docker não cria um serviço no host.
+## 4. Autorizar a janela Qt
 
-```bash
-sudo apt update
-sudo apt install mosquitto mosquitto-clients
-sudo systemctl enable --now mosquitto
-```
-
-Confirme que o serviço está ativo e ouvindo na porta `1883`:
-
-```bash
-systemctl is-active mosquitto
-ss -ltnp | grep 1883
-```
-
-O arquivo `docker-compose.yml` está configurado para acessar o broker do host
-em `127.0.0.1:1883`. Para acompanhar as mensagens publicadas pela aplicação,
-abra outro terminal e execute:
-
-```bash
-mosquitto_sub -h 127.0.0.1 -p 1883 -t 'laser-lab/#' -v
-```
-
-## Permitir a janela Qt
-
-Execute os comandos abaixo no mesmo terminal que será usado para iniciar a
-aplicação:
+No mesmo terminal em que a aplicação será iniciada, execute:
 
 ```bash
 export HOST_UID="$(id -u)"
 export HOST_GID="$(id -g)"
-test -n "$HOME" && test -d "$HOME" && test -w "$HOME"
 xhost +SI:localuser:"$(id -un)"
 ```
 
-Não execute o Docker Compose com `sudo`. A aplicação precisa usar o usuário da
-sessão gráfica para abrir a janela Qt e salvar arquivos na pasta pessoal.
+Não use `sudo docker compose`: o contêiner precisa da identidade do usuário da
+sessão gráfica para abrir a janela Qt e gravar arquivos na pasta pessoal.
 
-## Obter a imagem Docker
+## 5. Baixar e iniciar os contêineres
 
-Para usar a imagem pronta:
+Baixe as imagens e inicie a aplicação e o broker MQTT:
 
 ```bash
 docker compose pull
+docker compose up
 ```
 
-## Executar o sistema
+A janela da aplicação deve abrir e o terminal deve indicar que a câmera e o
+MQTT foram conectados. Para encerrar, feche a janela ou pressione `Q` ou `Esc`.
+Em seguida, se necessário, finalize os contêineres com `Ctrl+C`.
 
-Com a câmera conectada, o Mosquitto ativo e a janela Qt autorizada, execute:
+Para iniciar novamente depois da primeira execução, repita os ajustes das
+seções 3 e 4 e execute:
 
 ```bash
 docker compose up
 ```
 
-A inicialização correta mostra a câmera detectada e uma mensagem semelhante a:
+## Problemas comuns
 
-```text
-MQTT conectado a 127.0.0.1:1883
-```
-
-Feche a janela Qt ou pressione `Q` ou `Esc` para encerrar.
-
-Se aparecer `Connection refused`, confirme novamente o serviço e a porta:
-
-```bash
-sudo systemctl status mosquitto
-ss -ltnp | grep 1883
-```
+- **A janela Qt não abre:** confirme `echo "$DISPLAY"` e repita o comando
+  `xhost` da seção 4.
+- **A câmera não é encontrada ou perde imagens:** confira o cabo, o IP da
+  interface, o MTU e os valores de `net.core.rmem_*`.
+- **O MQTT não conecta:** confira se as duas ocorrências do IP no
+  `docker-compose.yml` correspondem ao IP do computador e use
+  `docker compose ps` para verificar os contêineres.
