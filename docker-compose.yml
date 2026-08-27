@@ -1,5 +1,3 @@
-version: "3.3"
-
 services:
   laser-scanner:
     build:
@@ -31,7 +29,7 @@ services:
       DBUS_FATAL_WARNINGS: "0"
 
       # Configuracao MQTT. Altere estes valores sem recompilar a aplicacao.
-      MQTT_HOST: "127.0.0.1"
+      MQTT_HOST: "150.162.23.134"
       MQTT_PORT: "1883"
       MQTT_TOPIC_PREFIX: "laser-lab"
       MQTT_CLIENT_ID: "scanner"
@@ -59,7 +57,7 @@ services:
     restart: always
 
     ports:
-      - "127.0.0.1:1883:1883" # ip_host:porta_host:porta_container
+      - "150.162.23.134:1883:1883" # ip_host:porta_host:porta_container
 
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
